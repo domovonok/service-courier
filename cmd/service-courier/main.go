@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"net"
 	"net/http"
@@ -13,18 +14,42 @@ import (
 
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/config"
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/handler"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func main() {
 	cfg := config.Load()
+	connString := fmt.Sprintf("postgres://%s:%s@%s:%s/%s",
+		cfg.PgUser, cfg.PgPassword, cfg.PgHost, cfg.PgPort, cfg.PgDB)
 
-	srv := &http.Server{
-		Addr:    net.JoinHostPort("", cfg.Port),
-		Handler: handler.New(),
+	poolConfig, err := pgxpool.ParseConfig(connString)
+	if err != nil {
+		log.Fatalln("Invalid connection string:", err)
 	}
+	poolConfig.MaxConns = 20
+	poolConfig.MinConns = 5
+	poolConfig.MaxConnLifetime = time.Hour
+	poolConfig.MaxConnIdleTime = time.Minute * 30
+	poolConfig.HealthCheckPeriod = time.Minute
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
+
+	pool, err := pgxpool.NewWithConfig(ctx, poolConfig)
+	if err != nil {
+		log.Fatalln("Unable to create connection pool:", err)
+	}
+	defer pool.Close()
+
+	if err := pool.Ping(ctx); err != nil {
+		log.Fatalln("Unable to ping database:", err)
+	}
+	log.Println("Successfully connected to database")
+
+	srv := &http.Server{
+		Addr:    net.JoinHostPort("", cfg.Port),
+		Handler: handler.New(pool),
+	}
 
 	go func() {
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
@@ -40,6 +65,6 @@ func main() {
 
 	log.Println("Shutting down service-courier")
 	if err := srv.Shutdown(shutdownCtx); err != nil {
-		log.Fatalln("Error shutting down service-courier:", err)
+		log.Fatalln("Graceful shutdown failed:", err)
 	}
 }
