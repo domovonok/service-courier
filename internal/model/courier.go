@@ -1,18 +1,18 @@
-package handler
+package model
 
 import (
 	"regexp"
 	"strings"
 )
 
-type courier struct {
-	ID     int64  `json:"id"`
-	Name   string `json:"name"`
-	Phone  string `json:"phone"`
-	Status string `json:"status"`
+type Courier struct {
+	ID     int64
+	Name   string
+	Phone  string
+	Status string
 }
 
-func (c *courier) validate() bool {
+func (c *Courier) Validate() bool {
 	return c.ID > 0 &&
 		strings.TrimSpace(c.Name) != "" &&
 		strings.TrimSpace(c.Status) != "" &&

@@ -5,10 +5,8 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/Avito-courses/course-go-avito-domovonok/internal/model"
 )
-
-const pgUniqueViolationCode = "23505"
 
 type httpError struct {
 	Code    int    `json:"-"`
@@ -19,29 +17,18 @@ func (e *httpError) Error() string {
 	return e.Message
 }
 
-var (
-	ErrInvalidInput = &httpError{http.StatusBadRequest, "invalid input"}
-	ErrNotFound     = &httpError{http.StatusNotFound, "not found"}
-	ErrConflict     = &httpError{http.StatusConflict, "conflict"}
-	ErrInvalidID    = &httpError{http.StatusBadRequest, "invalid id"}
-	ErrInternal     = &httpError{http.StatusInternalServerError, "internal error"}
-)
-
-func (h *courierHandler) writeError(w http.ResponseWriter, err error) {
-	var httpErr *httpError
-	if errors.As(err, &httpErr) {
-		h.writeJSON(w, httpErr.Code, httpErr)
-		return
+func mapErrorToHTTP(err error) *httpError {
+	switch {
+	case errors.Is(err, model.ErrNotFound):
+		return &httpError{http.StatusNotFound, "not found"}
+	case errors.Is(err, model.ErrConflict):
+		return &httpError{http.StatusConflict, "conflict"}
+	case errors.Is(err, model.ErrInvalidID):
+		return &httpError{http.StatusBadRequest, "invalid id"}
+	case errors.Is(err, model.ErrInvalidInput):
+		return &httpError{http.StatusBadRequest, "invalid input"}
+	default:
+		log.Println("Internal error:", err)
+		return &httpError{http.StatusInternalServerError, "internal error"}
 	}
-	log.Println("Internal error:", err)
-	h.writeJSON(w, http.StatusInternalServerError, ErrInternal)
-}
-
-func (h *courierHandler) handleDBError(w http.ResponseWriter, err error) {
-	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) && pgErr.Code == pgUniqueViolationCode {
-		h.writeError(w, ErrConflict)
-		return
-	}
-	h.writeError(w, err)
 }

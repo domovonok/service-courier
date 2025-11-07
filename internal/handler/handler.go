@@ -1,19 +1,24 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"strconv"
 
-	sq "github.com/Masterminds/squirrel"
 	"github.com/go-chi/chi/v5"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/Avito-courses/course-go-avito-domovonok/internal/model"
+	"github.com/Avito-courses/course-go-avito-domovonok/internal/service"
 )
 
-func New(p *pgxpool.Pool) http.Handler {
-	h := &courierHandler{pool: p}
+type courierHandler struct {
+	service service.CourierService
+}
+
+func New(svc service.CourierService) http.Handler {
+	h := &courierHandler{service: svc}
+
 	r := chi.NewRouter()
 	r.Get("/ping", h.ping)
 	r.Head("/healthcheck", h.healthcheck)
@@ -21,14 +26,9 @@ func New(p *pgxpool.Pool) http.Handler {
 	r.Get("/couriers", h.list)
 	r.Post("/courier", h.create)
 	r.Put("/courier", h.update)
+
 	return r
 }
-
-type courierHandler struct {
-	pool *pgxpool.Pool
-}
-
-var psql = sq.StatementBuilder.PlaceholderFormat(sq.Dollar)
 
 func (h *courierHandler) writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
@@ -36,124 +36,80 @@ func (h *courierHandler) writeJSON(w http.ResponseWriter, status int, v any) {
 	_ = json.NewEncoder(w).Encode(v)
 }
 
+func (h *courierHandler) writeError(w http.ResponseWriter, err error) {
+	httpErr := mapErrorToHTTP(err)
+	h.writeJSON(w, httpErr.Code, httpErr)
+}
+
 func (h *courierHandler) ping(w http.ResponseWriter, _ *http.Request) {
 	h.writeJSON(w, http.StatusOK, map[string]string{"message": "pong"})
 }
 
-func (h *courierHandler) healthcheck(w http.ResponseWriter, _ *http.Request) {
+func (h *courierHandler) healthcheck(w http.ResponseWriter, r *http.Request) {
+	if err := h.service.HealthCheck(r.Context()); err != nil {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		return
+	}
 	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h *courierHandler) get(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.Atoi(chi.URLParam(r, "id"))
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
 	if err != nil || id < 1 {
-		h.writeError(w, ErrInvalidID)
+		h.writeError(w, model.ErrInvalidID)
 		return
 	}
 
-	var c courier
-
-	query, args, _ := psql.
-		Select("id", "name", "phone", "status").
-		From("couriers").
-		Where(sq.Eq{"id": id}).
-		ToSql()
-
-	if err := h.pool.QueryRow(r.Context(), query, args...).
-		Scan(&c.ID, &c.Name, &c.Phone, &c.Status); err != nil {
-
-		if errors.Is(err, pgx.ErrNoRows) {
-			err = ErrNotFound
-		}
+	courier, err := h.service.GetCourier(r.Context(), id)
+	if err != nil {
 		h.writeError(w, err)
 		return
 	}
 
-	h.writeJSON(w, http.StatusOK, c)
+	h.writeJSON(w, http.StatusOK, toDTO(courier))
 }
 
 func (h *courierHandler) list(w http.ResponseWriter, r *http.Request) {
-	query, args, _ := psql.
-		Select("id", "name", "phone", "status").
-		From("couriers").
-		ToSql()
-
-	rows, err := h.pool.Query(r.Context(), query, args...)
+	couriers, err := h.service.ListCouriers(r.Context())
 	if err != nil {
 		h.writeError(w, err)
 		return
 	}
-	defer rows.Close()
 
-	couriers := make([]courier, 0)
-	for rows.Next() {
-		var c courier
-		if err := rows.Scan(&c.ID, &c.Name, &c.Phone, &c.Status); err != nil {
-			h.writeError(w, err)
-			return
-		}
-		couriers = append(couriers, c)
-	}
-	if err := rows.Err(); err != nil {
-		h.writeError(w, err)
-		return
+	dtos := make([]courierDTO, 0, len(couriers))
+	for _, c := range couriers {
+		dtos = append(dtos, toDTO(c))
 	}
 
-	h.writeJSON(w, http.StatusOK, couriers)
-}
-
-func (h *courierHandler) decodeAndValidate(w http.ResponseWriter, r *http.Request, c *courier) bool {
-	if err := json.NewDecoder(r.Body).Decode(c); err != nil || !c.validate() {
-		h.writeError(w, ErrInvalidInput)
-		return false
-	}
-	return true
+	h.writeJSON(w, http.StatusOK, dtos)
 }
 
 func (h *courierHandler) create(w http.ResponseWriter, r *http.Request) {
-	c := courier{ID: 1}
-	if !h.decodeAndValidate(w, r, &c) {
-		return
-	}
-
-	query, args, _ := psql.
-		Insert("couriers").
-		Columns("name", "phone", "status").
-		Values(c.Name, c.Phone, c.Status).
-		Suffix("RETURNING id").
-		ToSql()
-
-	if err := h.pool.QueryRow(r.Context(), query, args...).Scan(&c.ID); err != nil {
-		h.handleDBError(w, err)
-		return
-	}
-
-	h.writeJSON(w, http.StatusCreated, c)
+	h.processCourierRequest(w, r, http.StatusCreated, h.service.CreateCourier)
 }
 
 func (h *courierHandler) update(w http.ResponseWriter, r *http.Request) {
-	var c courier
-	if !h.decodeAndValidate(w, r, &c) {
+	h.processCourierRequest(w, r, http.StatusOK, h.service.UpdateCourier)
+}
+
+func (h *courierHandler) processCourierRequest(
+	w http.ResponseWriter,
+	r *http.Request,
+	successCode int,
+	serviceFunc func(ctx context.Context, courier *model.Courier) (*model.Courier, error),
+) {
+	var dto courierDTO
+	if err := json.NewDecoder(r.Body).Decode(&dto); err != nil {
+		h.writeError(w, model.ErrInvalidInput)
 		return
 	}
 
-	query, args, _ := psql.
-		Update("couriers").
-		Set("name", c.Name).
-		Set("phone", c.Phone).
-		Set("status", c.Status).
-		Where(sq.Eq{"id": c.ID}).
-		ToSql()
-
-	cmdTag, err := h.pool.Exec(r.Context(), query, args...)
+	courier := fromDTO(&dto)
+	result, err := serviceFunc(r.Context(), courier)
 	if err != nil {
-		h.handleDBError(w, err)
-		return
-	}
-	if cmdTag.RowsAffected() == 0 {
-		h.writeError(w, ErrNotFound)
+		h.writeError(w, err)
 		return
 	}
 
-	h.writeJSON(w, http.StatusOK, c)
+	h.writeJSON(w, successCode, toDTO(result))
 }
