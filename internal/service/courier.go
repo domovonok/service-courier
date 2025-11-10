@@ -23,8 +23,7 @@ func NewCourierService(repo courierRepository) *CourierService {
 }
 
 func (s *CourierService) CreateCourier(ctx context.Context, courier *model.Courier) (*model.Courier, error) {
-	courier.ID = 1
-	if !courier.Validate() {
+	if !courier.ValidateData() {
 		return nil, model.ErrInvalidInput
 	}
 
