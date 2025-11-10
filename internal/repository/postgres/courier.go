@@ -5,7 +5,6 @@ import (
 	"errors"
 
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/model"
-	"github.com/Avito-courses/course-go-avito-domovonok/internal/repository"
 	sq "github.com/Masterminds/squirrel"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -22,15 +21,15 @@ type DBPool interface {
 	Ping(ctx context.Context) error
 }
 
-type courierRepository struct {
+type CourierRepository struct {
 	pool DBPool
 }
 
-func NewCourierRepository(pool DBPool) repository.CourierRepository {
-	return &courierRepository{pool: pool}
+func NewCourierRepository(pool DBPool) *CourierRepository {
+	return &CourierRepository{pool: pool}
 }
 
-func (r *courierRepository) Create(ctx context.Context, courier *model.Courier) (int64, error) {
+func (r *CourierRepository) Create(ctx context.Context, courier *model.Courier) (int64, error) {
 	query, args, _ := psql.
 		Insert("couriers").
 		Columns("name", "phone", "status").
@@ -46,7 +45,7 @@ func (r *courierRepository) Create(ctx context.Context, courier *model.Courier) 
 	return id, nil
 }
 
-func (r *courierRepository) GetByID(ctx context.Context, id int64) (*model.Courier, error) {
+func (r *CourierRepository) GetByID(ctx context.Context, id int64) (*model.Courier, error) {
 	query, args, _ := psql.
 		Select("id", "name", "phone", "status").
 		From("couriers").
@@ -63,7 +62,7 @@ func (r *courierRepository) GetByID(ctx context.Context, id int64) (*model.Couri
 	return &c, nil
 }
 
-func (r *courierRepository) List(ctx context.Context) ([]*model.Courier, error) {
+func (r *CourierRepository) List(ctx context.Context) ([]*model.Courier, error) {
 	query, args, _ := psql.
 		Select("id", "name", "phone", "status").
 		From("couriers").
@@ -91,7 +90,7 @@ func (r *courierRepository) List(ctx context.Context) ([]*model.Courier, error) 
 	return couriers, nil
 }
 
-func (r *courierRepository) Update(ctx context.Context, courier *model.Courier) error {
+func (r *CourierRepository) Update(ctx context.Context, courier *model.Courier) error {
 	query, args, _ := psql.
 		Update("couriers").
 		Set("name", courier.Name).
@@ -112,11 +111,11 @@ func (r *courierRepository) Update(ctx context.Context, courier *model.Courier) 
 	return nil
 }
 
-func (r *courierRepository) Ping(ctx context.Context) error {
+func (r *CourierRepository) Ping(ctx context.Context) error {
 	return r.pool.Ping(ctx)
 }
 
-func (r *courierRepository) handleError(err error) error {
+func (r *CourierRepository) handleError(err error) error {
 	if errors.Is(err, pgx.ErrNoRows) {
 		return model.ErrNotFound
 	}
