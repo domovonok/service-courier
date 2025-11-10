@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/Avito-courses/course-go-avito-domovonok/internal/router"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/config"
@@ -34,7 +35,8 @@ func main() {
 
 	courierRepo := postgres.NewCourierRepository(pool)
 	courierService := service.NewCourierService(courierRepo)
-	httpHandler := handler.New(courierService)
+	courierHandler := handler.NewCourierHandler(courierService)
+	httpHandler := router.New(courierHandler)
 
 	srv := &http.Server{
 		Addr:    net.JoinHostPort("", cfg.Port),
