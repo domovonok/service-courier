@@ -29,6 +29,6 @@ func mapErrorToHTTP(err error) *httpError {
 		return &httpError{http.StatusBadRequest, "invalid input"}
 	default:
 		log.Println("Internal error:", err)
-		return &httpError{http.StatusInternalServerError, "internal error"}
+		return &httpError{http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError)}
 	}
 }
