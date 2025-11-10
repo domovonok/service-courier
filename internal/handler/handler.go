@@ -66,6 +66,14 @@ func (h *CourierHandler) Get(w http.ResponseWriter, r *http.Request) {
 	h.writeJSON(w, http.StatusOK, toDTO(courier))
 }
 
+func toCourierDTOs(couriers []*model.Courier) []courierDTO {
+	dtos := make([]courierDTO, 0, len(couriers))
+	for _, c := range couriers {
+		dtos = append(dtos, toDTO(c))
+	}
+	return dtos
+}
+
 func (h *CourierHandler) List(w http.ResponseWriter, r *http.Request) {
 	couriers, err := h.service.ListCouriers(r.Context())
 	if err != nil {
@@ -73,12 +81,7 @@ func (h *CourierHandler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	dtos := make([]courierDTO, 0, len(couriers))
-	for _, c := range couriers {
-		dtos = append(dtos, toDTO(c))
-	}
-
-	h.writeJSON(w, http.StatusOK, dtos)
+	h.writeJSON(w, http.StatusOK, toCourierDTOs(couriers))
 }
 
 func (h *CourierHandler) Create(w http.ResponseWriter, r *http.Request) {
