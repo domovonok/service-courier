@@ -80,11 +80,22 @@ func initDB(ctx context.Context, cfg config.DBConfig) (*pgxpool.Pool, error) {
 		return nil, fmt.Errorf("unable to create connection pool: %w", err)
 	}
 
-	if err := pool.Ping(ctx); err != nil {
-		pool.Close()
-		return nil, fmt.Errorf("unable to ping database: %w", err)
+	const maxRetries = 5
+	retryDelay := time.Second
+
+	for i := 1; i <= maxRetries; i++ {
+		if err := pool.Ping(ctx); err == nil {
+			log.Println("Successfully connected to database")
+			return pool, nil
+		} else {
+			log.Printf("Database ping attempt %d/%d failed: %v", i, maxRetries, err)
+			if i < maxRetries {
+				log.Printf("Retrying in %v...", retryDelay)
+				time.Sleep(retryDelay)
+			}
+		}
 	}
 
-	log.Println("Successfully connected to database")
-	return pool, nil
+	pool.Close()
+	return nil, fmt.Errorf("unable to ping database")
 }
