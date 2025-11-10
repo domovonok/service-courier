@@ -26,7 +26,7 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	pool, err := initDB(ctx, cfg)
+	pool, err := initDB(ctx, cfg.DB)
 	if err != nil {
 		log.Fatalln("Failed to initialize database:", err)
 	}
@@ -60,7 +60,7 @@ func main() {
 	log.Println("Service stopped successfully")
 }
 
-func initDB(ctx context.Context, cfg *config.Config) (*pgxpool.Pool, error) {
+func initDB(ctx context.Context, cfg config.DBConfig) (*pgxpool.Pool, error) {
 	connString := fmt.Sprintf("postgres://%s:%s@%s:%s/%s",
 		cfg.PgUser, cfg.PgPassword, cfg.PgHost, cfg.PgPort, cfg.PgDB)
 
