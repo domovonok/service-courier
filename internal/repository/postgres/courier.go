@@ -57,10 +57,7 @@ func (r *courierRepository) GetByID(ctx context.Context, id int64) (*model.Couri
 
 	if err := r.pool.QueryRow(ctx, query, args...).
 		Scan(&c.ID, &c.Name, &c.Phone, &c.Status); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, model.ErrNotFound
-		}
-		return nil, err
+		return nil, r.handleError(err)
 	}
 
 	return &c, nil
@@ -120,6 +117,9 @@ func (r *courierRepository) Ping(ctx context.Context) error {
 }
 
 func (r *courierRepository) handleError(err error) error {
+	if errors.Is(err, pgx.ErrNoRows) {
+		return model.ErrNotFound
+	}
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) && pgErr.Code == pgUniqueViolationCode {
 		return model.ErrConflict
