@@ -1,10 +1,13 @@
 .DEFAULT_GOAL := run
 
-MAIN ?= ./cmd/service-courier/main.go
-BIN ?= app
-GOOSE_CMD = goose -dir migrations $(GOOSE_DRIVER) $(GOOSE_DBSTRING)
+MAIN           ?= ./cmd/service-courier/main.go
+BIN            ?= app
+MIGRATIONS_DIR ?= ./migrations
+GOOSE          ?= goose
 
-.PHONY: migrate migrate-down up down run build
+GOOSE_CMD = $(GOOSE) -dir $(MIGRATIONS_DIR) $(GOOSE_DRIVER) $(GOOSE_DBSTRING)
+
+.PHONY: up down migrate migrate-down run build
 
 up:
 	docker compose up -d
