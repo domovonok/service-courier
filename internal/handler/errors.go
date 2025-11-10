@@ -2,7 +2,6 @@ package handler
 
 import (
 	"errors"
-	"log"
 	"net/http"
 
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/model"
@@ -28,7 +27,6 @@ func mapErrorToHTTP(err error) *httpError {
 	case errors.Is(err, model.ErrInvalidInput):
 		return &httpError{http.StatusBadRequest, "invalid input"}
 	default:
-		log.Println("Internal error:", err)
 		return &httpError{http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError)}
 	}
 }

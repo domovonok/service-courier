@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"log"
 	"net/http"
 	"strconv"
 
@@ -35,6 +36,9 @@ func (h *CourierHandler) writeJSON(w http.ResponseWriter, status int, v any) {
 
 func (h *CourierHandler) writeError(w http.ResponseWriter, err error) {
 	httpErr := mapErrorToHTTP(err)
+	if httpErr.Code == http.StatusInternalServerError {
+		log.Println("internal error:", err)
+	}
 	h.writeJSON(w, httpErr.Code, httpErr)
 }
 
