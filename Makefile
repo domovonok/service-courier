@@ -3,9 +3,8 @@
 MAIN           ?= ./cmd/service-courier/main.go
 BIN            ?= app
 MIGRATIONS_DIR ?= ./migrations
-GOOSE          ?= goose
 
-GOOSE_CMD = $(GOOSE) -dir $(MIGRATIONS_DIR) $(GOOSE_DRIVER) $(GOOSE_DBSTRING)
+GOOSE_CMD = goose -dir $(MIGRATIONS_DIR) $(GOOSE_DRIVER) $(GOOSE_DBSTRING)
 
 .PHONY: up down migrate migrate-down run build
 
