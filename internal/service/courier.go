@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/model"
 )
@@ -38,7 +39,7 @@ func (s *CourierService) CreateCourier(ctx context.Context, courier *model.Couri
 
 func (s *CourierService) GetCourier(ctx context.Context, id int64) (*model.Courier, error) {
 	if id <= 0 {
-		return nil, model.ErrInvalidID
+		return nil, fmt.Errorf("invalid id: %d: %w", id, model.ErrInvalidID)
 	}
 
 	return s.repo.GetByID(ctx, id)
