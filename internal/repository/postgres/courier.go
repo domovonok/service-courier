@@ -4,24 +4,29 @@ import (
 	"context"
 	"errors"
 
+	"github.com/Avito-courses/course-go-avito-domovonok/internal/model"
+	"github.com/Avito-courses/course-go-avito-domovonok/internal/repository"
 	sq "github.com/Masterminds/squirrel"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jackc/pgx/v5/pgxpool"
-
-	"github.com/Avito-courses/course-go-avito-domovonok/internal/model"
-	"github.com/Avito-courses/course-go-avito-domovonok/internal/repository"
 )
 
 const pgUniqueViolationCode = "23505"
 
 var psql = sq.StatementBuilder.PlaceholderFormat(sq.Dollar)
 
-type courierRepository struct {
-	pool *pgxpool.Pool
+type DBPool interface {
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
+	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
+	Ping(ctx context.Context) error
 }
 
-func NewCourierRepository(pool *pgxpool.Pool) repository.CourierRepository {
+type courierRepository struct {
+	pool DBPool
+}
+
+func NewCourierRepository(pool DBPool) repository.CourierRepository {
 	return &courierRepository{pool: pool}
 }
 
