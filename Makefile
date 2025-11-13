@@ -23,5 +23,5 @@ migrate-down:
 run: up migrate
 	go run $(MAIN)
 
-build: up migrate
+build:
 	go build -o $(BIN) $(MAIN)
