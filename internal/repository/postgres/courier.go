@@ -14,7 +14,7 @@ const pgUniqueViolationCode = "23505"
 
 var psql = sq.StatementBuilder.PlaceholderFormat(sq.Dollar)
 
-type DBPool interface {
+type dbPool interface {
 	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
 	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
 	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
@@ -22,10 +22,10 @@ type DBPool interface {
 }
 
 type CourierRepository struct {
-	pool DBPool
+	pool dbPool
 }
 
-func NewCourierRepository(pool DBPool) *CourierRepository {
+func NewCourierRepository(pool dbPool) *CourierRepository {
 	return &CourierRepository{pool: pool}
 }
 
