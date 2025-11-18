@@ -12,7 +12,7 @@ import (
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/model"
 )
 
-type CourierService interface {
+type courierService interface {
 	CreateCourier(ctx context.Context, courier *model.Courier) (*model.Courier, error)
 	GetCourier(ctx context.Context, id int64) (*model.Courier, error)
 	ListCouriers(ctx context.Context) ([]*model.Courier, error)
@@ -21,10 +21,10 @@ type CourierService interface {
 }
 
 type CourierHandler struct {
-	service CourierService
+	service courierService
 }
 
-func NewCourierHandler(svc CourierService) *CourierHandler {
+func NewCourierHandler(svc courierService) *CourierHandler {
 	return &CourierHandler{service: svc}
 }
 

@@ -51,7 +51,7 @@ func (s *CourierService) ListCouriers(ctx context.Context) ([]*model.Courier, er
 
 func (s *CourierService) UpdateCourier(ctx context.Context, courier *model.Courier) (*model.Courier, error) {
 	if !courier.Validate() {
-		return nil, model.ErrInvalidInput
+		return nil, fmt.Errorf("validating courier data: %w", model.ErrInvalidInput)
 	}
 
 	if err := s.repo.Update(ctx, courier); err != nil {

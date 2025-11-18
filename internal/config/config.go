@@ -39,13 +39,13 @@ func Load() *Config {
 	_ = godotenv.Load()
 
 	cfg := &Config{
-		Port: os.Getenv("PORT"),
+		Port: getEnvAsString("PORT", "8080"),
 		DB: DBConfig{
-			PgHost:     os.Getenv("POSTGRES_HOST"),
-			PgPort:     os.Getenv("POSTGRES_PORT"),
-			PgDB:       os.Getenv("POSTGRES_DB"),
-			PgUser:     os.Getenv("POSTGRES_USER"),
-			PgPassword: os.Getenv("POSTGRES_PASSWORD"),
+			PgHost:     getEnvAsString("POSTGRES_HOST", "localhost"),
+			PgPort:     getEnvAsString("POSTGRES_PORT", "5432"),
+			PgDB:       getEnvAsString("POSTGRES_DB", "testdb"),
+			PgUser:     getEnvAsString("POSTGRES_USER", "myuser"),
+			PgPassword: getEnvAsString("POSTGRES_PASSWORD", "mypassword"),
 			Pool: PoolConfig{
 				MaxConns:          getEnvAsInt32("POSTGRES_MAX_CONNS", 20),
 				MinConns:          getEnvAsInt32("POSTGRES_MIN_CONNS", 5),
@@ -72,6 +72,12 @@ func getEnvAs[T any](key string, defaultVal T, parse func(string) (T, error)) T 
 		}
 	}
 	return defaultVal
+}
+
+func getEnvAsString(key string, defaultVal string) string {
+	return getEnvAs[string](key, defaultVal, func(s string) (string, error) {
+		return s, nil
+	})
 }
 
 func getEnvAsInt(key string, defaultVal int) int {
