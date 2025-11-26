@@ -24,6 +24,10 @@ func NewCourierService(repo courierRepository) *CourierService {
 }
 
 func (s *CourierService) CreateCourier(ctx context.Context, courier *model.Courier) (*model.Courier, error) {
+	if courier.TransportType == "" {
+		courier.TransportType = "on_foot"
+	}
+
 	if !courier.ValidateData() {
 		return nil, model.ErrInvalidInput
 	}

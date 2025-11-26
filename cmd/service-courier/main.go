@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/Avito-courses/course-go-avito-domovonok/internal/factory"
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/router"
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -36,7 +37,15 @@ func main() {
 	courierRepo := postgres.NewCourierRepository(pool)
 	courierService := service.NewCourierService(courierRepo)
 	courierHandler := handler.NewCourierHandler(courierService)
-	httpHandler := router.New(courierHandler)
+
+	deliveryRepo := postgres.NewDeliveryRepository(pool)
+	deliveryTimeFactory := factory.NewDeliveryTimeFactory()
+	deliveryService := service.NewDeliveryService(deliveryRepo, deliveryTimeFactory)
+	deliveryHandler := handler.NewDeliveryHandler(deliveryService)
+
+	go deliveryService.StartExpirationChecker(ctx, cfg.DeliveryCheckInterval)
+
+	httpHandler := router.New(courierHandler, deliveryHandler)
 
 	srv := &http.Server{
 		Addr:    net.JoinHostPort("", cfg.Port),

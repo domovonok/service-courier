@@ -31,15 +31,17 @@ type DBConfig struct {
 }
 
 type Config struct {
-	Port string
-	DB   DBConfig
+	Port                  string
+	DB                    DBConfig
+	DeliveryCheckInterval time.Duration
 }
 
 func Load() *Config {
 	_ = godotenv.Load()
 
 	cfg := &Config{
-		Port: getEnvAsString("PORT", "8080"),
+		Port:                  getEnvAsString("PORT", "8080"),
+		DeliveryCheckInterval: getEnvAsDuration("DELIVERY_CHECK_INTERVAL", 10*time.Second),
 		DB: DBConfig{
 			PgHost:     getEnvAsString("POSTGRES_HOST", "localhost"),
 			PgPort:     getEnvAsString("POSTGRES_PORT", "5432"),

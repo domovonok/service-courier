@@ -1,0 +1,415 @@
+package service
+
+import (
+	"context"
+	"errors"
+	"testing"
+	"time"
+
+	"github.com/Avito-courses/course-go-avito-domovonok/internal/model"
+	"github.com/Avito-courses/course-go-avito-domovonok/internal/service/mocks"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
+)
+
+//go:generate mockgen -destination=mocks/delivery_repository_mock.go -package=mocks github.com/Avito-courses/course-go-avito-domovonok/internal/service deliveryRepository
+//go:generate mockgen -destination=mocks/delivery_time_calculator_mock.go -package=mocks github.com/Avito-courses/course-go-avito-domovonok/internal/service deliveryTimeCalculator
+//go:generate mockgen -destination=mocks/pgx_tx_mock.go -package=mocks github.com/jackc/pgx/v5 Tx
+
+func TestDeliveryService_AssignCourier(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		orderID     string
+		mockSetup   func(*mocks.MockdeliveryRepository, *mocks.MockdeliveryTimeCalculator, *mocks.MockTx)
+		expectedErr error
+	}{
+		{
+			name:    "successful assignment",
+			orderID: "order-123",
+			mockSetup: func(repo *mocks.MockdeliveryRepository, calc *mocks.MockdeliveryTimeCalculator, tx *mocks.MockTx) {
+				courier := &model.Courier{
+					ID:            1,
+					Name:          "John Doe",
+					Phone:         "+1234567890",
+					Status:        "available",
+					TransportType: "car",
+				}
+				
+				repo.EXPECT().BeginTx(gomock.Any()).Return(tx, nil)
+				repo.EXPECT().GetAvailableCourier(gomock.Any()).Return(courier, nil)
+				
+				calc.EXPECT().
+					CalculateDeadline("car", gomock.Any()).
+					DoAndReturn(func(transportType string, fromTime time.Time) time.Time {
+						return fromTime.Add(5 * time.Minute)
+					})
+				
+				repo.EXPECT().
+					Create(gomock.Any(), tx, gomock.Any()).
+					Return(int64(1), nil)
+				
+				repo.EXPECT().
+					UpdateCourierStatus(gomock.Any(), tx, int64(1), "busy").
+					Return(nil)
+				
+				tx.EXPECT().Commit(gomock.Any()).Return(nil)
+				tx.EXPECT().Rollback(gomock.Any()).Return(nil)
+			},
+			expectedErr: nil,
+		},
+		{
+			name:    "empty order ID",
+			orderID: "",
+			mockSetup: func(repo *mocks.MockdeliveryRepository, calc *mocks.MockdeliveryTimeCalculator, tx *mocks.MockTx) {
+			},
+			expectedErr: model.ErrInvalidInput,
+		},
+		{
+			name:    "begin transaction fails",
+			orderID: "order-123",
+			mockSetup: func(repo *mocks.MockdeliveryRepository, calc *mocks.MockdeliveryTimeCalculator, tx *mocks.MockTx) {
+				repo.EXPECT().BeginTx(gomock.Any()).Return(nil, errors.New("tx error"))
+			},
+			expectedErr: errors.New("tx error"),
+		},
+		{
+			name:    "no available couriers",
+			orderID: "order-123",
+			mockSetup: func(repo *mocks.MockdeliveryRepository, calc *mocks.MockdeliveryTimeCalculator, tx *mocks.MockTx) {
+				repo.EXPECT().BeginTx(gomock.Any()).Return(tx, nil)
+				repo.EXPECT().GetAvailableCourier(gomock.Any()).Return(nil, model.ErrNoAvailableCouriers)
+				tx.EXPECT().Rollback(gomock.Any()).Return(nil)
+			},
+			expectedErr: model.ErrNoAvailableCouriers,
+		},
+		{
+			name:    "create delivery fails",
+			orderID: "order-123",
+			mockSetup: func(repo *mocks.MockdeliveryRepository, calc *mocks.MockdeliveryTimeCalculator, tx *mocks.MockTx) {
+				courier := &model.Courier{
+					ID:            1,
+					Name:          "John Doe",
+					Phone:         "+1234567890",
+					Status:        "available",
+					TransportType: "car",
+				}
+				
+				repo.EXPECT().BeginTx(gomock.Any()).Return(tx, nil)
+				repo.EXPECT().GetAvailableCourier(gomock.Any()).Return(courier, nil)
+				
+				calc.EXPECT().
+					CalculateDeadline("car", gomock.Any()).
+					Return(time.Now().Add(5 * time.Minute))
+				
+				repo.EXPECT().
+					Create(gomock.Any(), tx, gomock.Any()).
+					Return(int64(0), errors.New("db error"))
+				
+				tx.EXPECT().Rollback(gomock.Any()).Return(nil)
+			},
+			expectedErr: errors.New("db error"),
+		},
+		{
+			name:    "update courier status fails",
+			orderID: "order-123",
+			mockSetup: func(repo *mocks.MockdeliveryRepository, calc *mocks.MockdeliveryTimeCalculator, tx *mocks.MockTx) {
+				courier := &model.Courier{
+					ID:            1,
+					Name:          "John Doe",
+					Phone:         "+1234567890",
+					Status:        "available",
+					TransportType: "car",
+				}
+				
+				repo.EXPECT().BeginTx(gomock.Any()).Return(tx, nil)
+				repo.EXPECT().GetAvailableCourier(gomock.Any()).Return(courier, nil)
+				
+				calc.EXPECT().
+					CalculateDeadline("car", gomock.Any()).
+					Return(time.Now().Add(5 * time.Minute))
+				
+				repo.EXPECT().
+					Create(gomock.Any(), tx, gomock.Any()).
+					Return(int64(1), nil)
+				
+				repo.EXPECT().
+					UpdateCourierStatus(gomock.Any(), tx, int64(1), "busy").
+					Return(errors.New("update error"))
+				
+				tx.EXPECT().Rollback(gomock.Any()).Return(nil)
+			},
+			expectedErr: errors.New("update error"),
+		},
+		{
+			name:    "commit fails",
+			orderID: "order-123",
+			mockSetup: func(repo *mocks.MockdeliveryRepository, calc *mocks.MockdeliveryTimeCalculator, tx *mocks.MockTx) {
+				courier := &model.Courier{
+					ID:            1,
+					Name:          "John Doe",
+					Phone:         "+1234567890",
+					Status:        "available",
+					TransportType: "car",
+				}
+				
+				repo.EXPECT().BeginTx(gomock.Any()).Return(tx, nil)
+				repo.EXPECT().GetAvailableCourier(gomock.Any()).Return(courier, nil)
+				
+				calc.EXPECT().
+					CalculateDeadline("car", gomock.Any()).
+					Return(time.Now().Add(5 * time.Minute))
+				
+				repo.EXPECT().
+					Create(gomock.Any(), tx, gomock.Any()).
+					Return(int64(1), nil)
+				
+				repo.EXPECT().
+					UpdateCourierStatus(gomock.Any(), tx, int64(1), "busy").
+					Return(nil)
+				
+				tx.EXPECT().Commit(gomock.Any()).Return(errors.New("commit error"))
+				tx.EXPECT().Rollback(gomock.Any()).Return(nil)
+			},
+			expectedErr: errors.New("commit error"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			mockRepo := mocks.NewMockdeliveryRepository(ctrl)
+			mockCalc := mocks.NewMockdeliveryTimeCalculator(ctrl)
+			mockTx := mocks.NewMockTx(ctrl)
+			
+			tt.mockSetup(mockRepo, mockCalc, mockTx)
+
+			service := NewDeliveryService(mockRepo, mockCalc)
+			courier, delivery, err := service.AssignCourier(context.Background(), tt.orderID)
+
+			if tt.expectedErr != nil {
+				assert.Error(t, err)
+				assert.Nil(t, courier)
+				assert.Nil(t, delivery)
+			} else {
+				require.NoError(t, err)
+				require.NotNil(t, courier)
+				require.NotNil(t, delivery)
+				assert.Equal(t, tt.orderID, delivery.OrderID)
+				assert.Equal(t, courier.ID, delivery.CourierID)
+			}
+		})
+	}
+}
+
+func TestDeliveryService_UnassignCourier(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name            string
+		orderID         string
+		mockSetup       func(*mocks.MockdeliveryRepository, *mocks.MockTx)
+		expectedCourierID int64
+		expectedErr     error
+	}{
+		{
+			name:    "successful unassignment",
+			orderID: "order-123",
+			mockSetup: func(repo *mocks.MockdeliveryRepository, tx *mocks.MockTx) {
+				delivery := &model.Delivery{
+					ID:        1,
+					CourierID: 5,
+					OrderID:   "order-123",
+				}
+				
+				repo.EXPECT().BeginTx(gomock.Any()).Return(tx, nil)
+				repo.EXPECT().GetByOrderID(gomock.Any(), "order-123").Return(delivery, nil)
+				repo.EXPECT().DeleteByOrderID(gomock.Any(), tx, "order-123").Return(nil)
+				repo.EXPECT().UpdateCourierStatus(gomock.Any(), tx, int64(5), "available").Return(nil)
+				tx.EXPECT().Commit(gomock.Any()).Return(nil)
+				tx.EXPECT().Rollback(gomock.Any()).Return(nil)
+			},
+			expectedCourierID: 5,
+			expectedErr:       nil,
+		},
+		{
+			name:    "empty order ID",
+			orderID: "",
+			mockSetup: func(repo *mocks.MockdeliveryRepository, tx *mocks.MockTx) {
+			},
+			expectedCourierID: 0,
+			expectedErr:       model.ErrInvalidInput,
+		},
+		{
+			name:    "begin transaction fails",
+			orderID: "order-123",
+			mockSetup: func(repo *mocks.MockdeliveryRepository, tx *mocks.MockTx) {
+				repo.EXPECT().BeginTx(gomock.Any()).Return(nil, errors.New("tx error"))
+			},
+			expectedCourierID: 0,
+			expectedErr:       errors.New("tx error"),
+		},
+		{
+			name:    "delivery not found",
+			orderID: "order-999",
+			mockSetup: func(repo *mocks.MockdeliveryRepository, tx *mocks.MockTx) {
+				repo.EXPECT().BeginTx(gomock.Any()).Return(tx, nil)
+				repo.EXPECT().GetByOrderID(gomock.Any(), "order-999").Return(nil, model.ErrDeliveryNotFound)
+				tx.EXPECT().Rollback(gomock.Any()).Return(nil)
+			},
+			expectedCourierID: 0,
+			expectedErr:       model.ErrDeliveryNotFound,
+		},
+		{
+			name:    "delete delivery fails",
+			orderID: "order-123",
+			mockSetup: func(repo *mocks.MockdeliveryRepository, tx *mocks.MockTx) {
+				delivery := &model.Delivery{
+					ID:        1,
+					CourierID: 5,
+					OrderID:   "order-123",
+				}
+				
+				repo.EXPECT().BeginTx(gomock.Any()).Return(tx, nil)
+				repo.EXPECT().GetByOrderID(gomock.Any(), "order-123").Return(delivery, nil)
+				repo.EXPECT().DeleteByOrderID(gomock.Any(), tx, "order-123").Return(errors.New("delete error"))
+				tx.EXPECT().Rollback(gomock.Any()).Return(nil)
+			},
+			expectedCourierID: 0,
+			expectedErr:       errors.New("delete error"),
+		},
+		{
+			name:    "update courier status fails",
+			orderID: "order-123",
+			mockSetup: func(repo *mocks.MockdeliveryRepository, tx *mocks.MockTx) {
+				delivery := &model.Delivery{
+					ID:        1,
+					CourierID: 5,
+					OrderID:   "order-123",
+				}
+				
+				repo.EXPECT().BeginTx(gomock.Any()).Return(tx, nil)
+				repo.EXPECT().GetByOrderID(gomock.Any(), "order-123").Return(delivery, nil)
+				repo.EXPECT().DeleteByOrderID(gomock.Any(), tx, "order-123").Return(nil)
+				repo.EXPECT().UpdateCourierStatus(gomock.Any(), tx, int64(5), "available").Return(errors.New("update error"))
+				tx.EXPECT().Rollback(gomock.Any()).Return(nil)
+			},
+			expectedCourierID: 0,
+			expectedErr:       errors.New("update error"),
+		},
+		{
+			name:    "commit fails",
+			orderID: "order-123",
+			mockSetup: func(repo *mocks.MockdeliveryRepository, tx *mocks.MockTx) {
+				delivery := &model.Delivery{
+					ID:        1,
+					CourierID: 5,
+					OrderID:   "order-123",
+				}
+				
+				repo.EXPECT().BeginTx(gomock.Any()).Return(tx, nil)
+				repo.EXPECT().GetByOrderID(gomock.Any(), "order-123").Return(delivery, nil)
+				repo.EXPECT().DeleteByOrderID(gomock.Any(), tx, "order-123").Return(nil)
+				repo.EXPECT().UpdateCourierStatus(gomock.Any(), tx, int64(5), "available").Return(nil)
+				tx.EXPECT().Commit(gomock.Any()).Return(errors.New("commit error"))
+				tx.EXPECT().Rollback(gomock.Any()).Return(nil)
+			},
+			expectedCourierID: 0,
+			expectedErr:       errors.New("commit error"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			mockRepo := mocks.NewMockdeliveryRepository(ctrl)
+			mockCalc := mocks.NewMockdeliveryTimeCalculator(ctrl)
+			mockTx := mocks.NewMockTx(ctrl)
+			
+			tt.mockSetup(mockRepo, mockTx)
+
+			service := NewDeliveryService(mockRepo, mockCalc)
+			courierID, err := service.UnassignCourier(context.Background(), tt.orderID)
+
+			if tt.expectedErr != nil {
+				assert.Error(t, err)
+				assert.Equal(t, int64(0), courierID)
+			} else {
+				require.NoError(t, err)
+				assert.Equal(t, tt.expectedCourierID, courierID)
+			}
+		})
+	}
+}
+
+func TestDeliveryService_CheckExpiredDeliveries(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		mockSetup   func(*mocks.MockdeliveryRepository)
+		expectedErr error
+	}{
+		{
+			name: "successful check with releases",
+			mockSetup: func(repo *mocks.MockdeliveryRepository) {
+				repo.EXPECT().
+					ReleaseExpiredDeliveries(gomock.Any()).
+					Return(int64(3), nil)
+			},
+			expectedErr: nil,
+		},
+		{
+			name: "successful check with no releases",
+			mockSetup: func(repo *mocks.MockdeliveryRepository) {
+				repo.EXPECT().
+					ReleaseExpiredDeliveries(gomock.Any()).
+					Return(int64(0), nil)
+			},
+			expectedErr: nil,
+		},
+		{
+			name: "repository error",
+			mockSetup: func(repo *mocks.MockdeliveryRepository) {
+				repo.EXPECT().
+					ReleaseExpiredDeliveries(gomock.Any()).
+					Return(int64(0), errors.New("db error"))
+			},
+			expectedErr: errors.New("db error"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			mockRepo := mocks.NewMockdeliveryRepository(ctrl)
+			mockCalc := mocks.NewMockdeliveryTimeCalculator(ctrl)
+			
+			tt.mockSetup(mockRepo)
+
+			service := NewDeliveryService(mockRepo, mockCalc)
+			err := service.CheckExpiredDeliveries(context.Background())
+
+			if tt.expectedErr != nil {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
