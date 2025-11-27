@@ -150,7 +150,6 @@ func (r *DeliveryRepository) ReleaseExpiredDeliveries(ctx context.Context) (int6
 		Delete("delivery").
 		Where("deadline < CURRENT_TIMESTAMP").
 		Suffix("RETURNING courier_id").
-		PlaceholderFormat(sq.Dollar).
 		ToSql()
 
 	rows, err := tx.Query(ctx, deleteQuery, args...)
