@@ -8,21 +8,47 @@ const (
 	TransportCar     = "car"
 )
 
-type DeliveryTimeFactory struct{}
-
-func NewDeliveryTimeFactory() *DeliveryTimeFactory {
-	return &DeliveryTimeFactory{}
+type DeliveryTimeCalculator interface {
+	CalculateDeadline(fromTime time.Time) time.Time
 }
 
-func (f *DeliveryTimeFactory) CalculateDeadline(transportType string, fromTime time.Time) time.Time {
+type OnFootCalculator struct{}
+
+func (c *OnFootCalculator) CalculateDeadline(fromTime time.Time) time.Time {
+	return fromTime.Add(30 * time.Minute)
+}
+
+type ScooterCalculator struct{}
+
+func (c *ScooterCalculator) CalculateDeadline(fromTime time.Time) time.Time {
+	return fromTime.Add(15 * time.Minute)
+}
+
+type CarCalculator struct{}
+
+func (c *CarCalculator) CalculateDeadline(fromTime time.Time) time.Time {
+	return fromTime.Add(5 * time.Minute)
+}
+
+type DeliveryTimeCalculatorFactory interface {
+	CreateCalculator(transportType string) DeliveryTimeCalculator
+}
+
+type deliveryTimeCalculatorFactory struct{}
+
+func NewDeliveryTimeCalculatorFactory() DeliveryTimeCalculatorFactory {
+	return &deliveryTimeCalculatorFactory{}
+}
+
+func (f *deliveryTimeCalculatorFactory) CreateCalculator(transportType string) DeliveryTimeCalculator {
 	switch transportType {
 	case TransportOnFoot:
-		return fromTime.Add(30 * time.Minute)
+		return &OnFootCalculator{}
 	case TransportScooter:
-		return fromTime.Add(15 * time.Minute)
+		return &ScooterCalculator{}
 	case TransportCar:
-		return fromTime.Add(5 * time.Minute)
+		return &CarCalculator{}
 	default:
-		return fromTime.Add(30 * time.Minute)
+		return &OnFootCalculator{}
 	}
 }

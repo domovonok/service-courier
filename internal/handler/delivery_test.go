@@ -1,4 +1,4 @@
-package handler
+package handler_test
 
 import (
 	"bytes"
@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Avito-courses/course-go-avito-domovonok/internal/handler"
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/handler/mocks"
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/model"
 	"github.com/stretchr/testify/assert"
@@ -30,7 +31,7 @@ func TestDeliveryHandler_Assign(t *testing.T) {
 	}{
 		{
 			name: "successful assignment",
-			requestBody: assignRequestDTO{
+			requestBody: handler.AssignRequestDTO{
 				OrderID: "order-123",
 			},
 			mockSetup: func(m *mocks.MockdeliveryService) {
@@ -55,7 +56,7 @@ func TestDeliveryHandler_Assign(t *testing.T) {
 			},
 			expectedStatus: http.StatusOK,
 			checkResponse: func(t *testing.T, w *httptest.ResponseRecorder) {
-				var response assignResponseDTO
+				var response handler.AssignResponseDTO
 				err := json.NewDecoder(w.Body).Decode(&response)
 				require.NoError(t, err)
 				assert.Equal(t, int64(1), response.CourierID)
@@ -70,7 +71,7 @@ func TestDeliveryHandler_Assign(t *testing.T) {
 		},
 		{
 			name: "no available couriers",
-			requestBody: assignRequestDTO{
+			requestBody: handler.AssignRequestDTO{
 				OrderID: "order-123",
 			},
 			mockSetup: func(m *mocks.MockdeliveryService) {
@@ -92,13 +93,13 @@ func TestDeliveryHandler_Assign(t *testing.T) {
 			mockService := mocks.NewMockdeliveryService(ctrl)
 			tt.mockSetup(mockService)
 
-			handler := NewDeliveryHandler(mockService)
+			h := handler.NewDeliveryHandler(mockService)
 
 			body, _ := json.Marshal(tt.requestBody)
 			req := httptest.NewRequest(http.MethodPost, "/delivery/assign", bytes.NewReader(body))
 			w := httptest.NewRecorder()
 
-			handler.Assign(w, req)
+			h.Assign(w, req)
 
 			assert.Equal(t, tt.expectedStatus, w.Code)
 			if tt.checkResponse != nil {
@@ -120,7 +121,7 @@ func TestDeliveryHandler_Unassign(t *testing.T) {
 	}{
 		{
 			name: "successful unassignment",
-			requestBody: unassignRequestDTO{
+			requestBody: handler.UnassignRequestDTO{
 				OrderID: "order-123",
 			},
 			mockSetup: func(m *mocks.MockdeliveryService) {
@@ -130,7 +131,7 @@ func TestDeliveryHandler_Unassign(t *testing.T) {
 			},
 			expectedStatus: http.StatusOK,
 			checkResponse: func(t *testing.T, w *httptest.ResponseRecorder) {
-				var response unassignResponseDTO
+				var response handler.UnassignResponseDTO
 				err := json.NewDecoder(w.Body).Decode(&response)
 				require.NoError(t, err)
 				assert.Equal(t, "order-123", response.OrderID)
@@ -145,7 +146,7 @@ func TestDeliveryHandler_Unassign(t *testing.T) {
 		},
 		{
 			name: "delivery not found",
-			requestBody: unassignRequestDTO{
+			requestBody: handler.UnassignRequestDTO{
 				OrderID: "order-999",
 			},
 			mockSetup: func(m *mocks.MockdeliveryService) {
@@ -157,7 +158,7 @@ func TestDeliveryHandler_Unassign(t *testing.T) {
 		},
 		{
 			name: "internal error",
-			requestBody: unassignRequestDTO{
+			requestBody: handler.UnassignRequestDTO{
 				OrderID: "order-123",
 			},
 			mockSetup: func(m *mocks.MockdeliveryService) {
@@ -179,13 +180,13 @@ func TestDeliveryHandler_Unassign(t *testing.T) {
 			mockService := mocks.NewMockdeliveryService(ctrl)
 			tt.mockSetup(mockService)
 
-			handler := NewDeliveryHandler(mockService)
+			h := handler.NewDeliveryHandler(mockService)
 
 			body, _ := json.Marshal(tt.requestBody)
 			req := httptest.NewRequest(http.MethodPost, "/delivery/unassign", bytes.NewReader(body))
 			w := httptest.NewRecorder()
 
-			handler.Unassign(w, req)
+			h.Unassign(w, req)
 
 			assert.Equal(t, tt.expectedStatus, w.Code)
 			if tt.checkResponse != nil {

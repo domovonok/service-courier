@@ -1,4 +1,4 @@
-package service
+package service_test
 
 import (
 	"context"
@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/model"
+	"github.com/Avito-courses/course-go-avito-domovonok/internal/service"
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/service/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -41,22 +42,15 @@ func TestCourierService_CreateCourier(t *testing.T) {
 			expectedErr: nil,
 		},
 		{
-			name: "successful creation with default transport type",
+			name: "invalid courier data - missing transport type",
 			courier: &model.Courier{
 				Name:   "Jane Smith",
 				Phone:  "+9876543210",
 				Status: "available",
 			},
-			mockSetup: func(m *mocks.MockcourierRepository) {
-				m.EXPECT().
-					Create(gomock.Any(), gomock.Any()).
-					DoAndReturn(func(ctx context.Context, c *model.Courier) (int64, error) {
-						assert.Equal(t, "on_foot", c.TransportType)
-						return int64(2), nil
-					})
-			},
-			expectedID:  2,
-			expectedErr: nil,
+			mockSetup:   func(m *mocks.MockcourierRepository) {},
+			expectedID:  0,
+			expectedErr: model.ErrInvalidInput,
 		},
 		{
 			name: "invalid courier data - empty name",
@@ -138,8 +132,8 @@ func TestCourierService_CreateCourier(t *testing.T) {
 			mockRepo := mocks.NewMockcourierRepository(ctrl)
 			tt.mockSetup(mockRepo)
 
-			service := NewCourierService(mockRepo)
-			result, err := service.CreateCourier(context.Background(), tt.courier)
+			svc := service.NewCourierService(mockRepo)
+			result, err := svc.CreateCourier(context.Background(), tt.courier)
 
 			if tt.expectedErr != nil {
 				assert.Error(t, err)
@@ -239,8 +233,8 @@ func TestCourierService_GetCourier(t *testing.T) {
 			mockRepo := mocks.NewMockcourierRepository(ctrl)
 			tt.mockSetup(mockRepo)
 
-			service := NewCourierService(mockRepo)
-			result, err := service.GetCourier(context.Background(), tt.courierID)
+			svc := service.NewCourierService(mockRepo)
+			result, err := svc.GetCourier(context.Background(), tt.courierID)
 
 			if tt.expectedErr != nil {
 				assert.Error(t, err)
@@ -311,8 +305,8 @@ func TestCourierService_ListCouriers(t *testing.T) {
 			mockRepo := mocks.NewMockcourierRepository(ctrl)
 			tt.mockSetup(mockRepo)
 
-			service := NewCourierService(mockRepo)
-			result, err := service.ListCouriers(context.Background())
+			svc := service.NewCourierService(mockRepo)
+			result, err := svc.ListCouriers(context.Background())
 
 			if tt.expectedErr != nil {
 				assert.Error(t, err)
@@ -418,8 +412,8 @@ func TestCourierService_UpdateCourier(t *testing.T) {
 			mockRepo := mocks.NewMockcourierRepository(ctrl)
 			tt.mockSetup(mockRepo)
 
-			service := NewCourierService(mockRepo)
-			result, err := service.UpdateCourier(context.Background(), tt.courier)
+			svc := service.NewCourierService(mockRepo)
+			result, err := svc.UpdateCourier(context.Background(), tt.courier)
 
 			if tt.expectedErr != nil {
 				assert.Error(t, err)
@@ -471,8 +465,8 @@ func TestCourierService_HealthCheck(t *testing.T) {
 			mockRepo := mocks.NewMockcourierRepository(ctrl)
 			tt.mockSetup(mockRepo)
 
-			service := NewCourierService(mockRepo)
-			err := service.HealthCheck(context.Background())
+			svc := service.NewCourierService(mockRepo)
+			err := svc.HealthCheck(context.Background())
 
 			if tt.expectedErr != nil {
 				assert.Error(t, err)

@@ -14,6 +14,7 @@ import (
 
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/factory"
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/router"
+	"github.com/Avito-courses/course-go-avito-domovonok/internal/worker"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/config"
@@ -39,11 +40,13 @@ func main() {
 	courierHandler := handler.NewCourierHandler(courierService)
 
 	deliveryRepo := postgres.NewDeliveryRepository(pool)
-	deliveryTimeFactory := factory.NewDeliveryTimeFactory()
-	deliveryService := service.NewDeliveryService(deliveryRepo, deliveryTimeFactory)
+	calculatorFactory := factory.NewDeliveryTimeCalculatorFactory()
+	txManager := postgres.NewTransactionManager(pool)
+	deliveryService := service.NewDeliveryService(deliveryRepo, courierRepo, calculatorFactory, txManager)
 	deliveryHandler := handler.NewDeliveryHandler(deliveryService)
 
-	go deliveryService.StartExpirationChecker(ctx, cfg.DeliveryCheckInterval)
+	expirationWorker := worker.NewDeliveryExpirationWorker(deliveryService, cfg.DeliveryCheckInterval)
+	go expirationWorker.Start(ctx)
 
 	httpHandler := router.New(courierHandler, deliveryHandler)
 

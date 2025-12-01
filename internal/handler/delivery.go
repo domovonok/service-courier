@@ -37,7 +37,7 @@ func (h *DeliveryHandler) writeError(w http.ResponseWriter, err error) {
 }
 
 func (h *DeliveryHandler) Assign(w http.ResponseWriter, r *http.Request) {
-	var req assignRequestDTO
+	var req AssignRequestDTO
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.writeError(w, model.ErrInvalidInput)
 		return
@@ -49,7 +49,7 @@ func (h *DeliveryHandler) Assign(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response := assignResponseDTO{
+	response := AssignResponseDTO{
 		CourierID:        courier.ID,
 		OrderID:          delivery.OrderID,
 		TransportType:    courier.TransportType,
@@ -60,7 +60,7 @@ func (h *DeliveryHandler) Assign(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *DeliveryHandler) Unassign(w http.ResponseWriter, r *http.Request) {
-	var req unassignRequestDTO
+	var req UnassignRequestDTO
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.writeError(w, model.ErrInvalidInput)
 		return
@@ -72,7 +72,7 @@ func (h *DeliveryHandler) Unassign(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response := unassignResponseDTO{
+	response := UnassignResponseDTO{
 		OrderID:   req.OrderID,
 		Status:    "unassigned",
 		CourierID: courierID,

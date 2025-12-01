@@ -22,7 +22,7 @@ func NewDeliveryRepository(pool txProvider) *DeliveryRepository {
 	return &DeliveryRepository{pool: pool}
 }
 
-func (r *DeliveryRepository) Create(ctx context.Context, tx pgx.Tx, delivery *model.Delivery) (int64, error) {
+func (r *DeliveryRepository) Create(ctx context.Context, delivery *model.Delivery) (int64, error) {
 	query, args, _ := psql.
 		Insert("delivery").
 		Columns("courier_id", "order_id", "assigned_at", "deadline").
@@ -32,6 +32,8 @@ func (r *DeliveryRepository) Create(ctx context.Context, tx pgx.Tx, delivery *mo
 
 	var id int64
 	var err error
+
+	tx := GetTx(ctx)
 	if tx != nil {
 		err = tx.QueryRow(ctx, query, args...).Scan(&id)
 	} else {
@@ -83,30 +85,14 @@ func (r *DeliveryRepository) GetByOrderID(ctx context.Context, orderID string) (
 	return &d, nil
 }
 
-func (r *DeliveryRepository) DeleteByOrderID(ctx context.Context, tx pgx.Tx, orderID string) error {
+func (r *DeliveryRepository) DeleteByOrderID(ctx context.Context, orderID string) error {
 	query, args, _ := psql.
 		Delete("delivery").
 		Where(sq.Eq{"order_id": orderID}).
 		ToSql()
 
 	var err error
-	if tx != nil {
-		_, err = tx.Exec(ctx, query, args...)
-	} else {
-		_, err = r.pool.Exec(ctx, query, args...)
-	}
-
-	return err
-}
-
-func (r *DeliveryRepository) UpdateCourierStatus(ctx context.Context, tx pgx.Tx, courierID int64, status string) error {
-	query, args, _ := psql.
-		Update("couriers").
-		Set("status", status).
-		Where(sq.Eq{"id": courierID}).
-		ToSql()
-
-	var err error
+	tx := GetTx(ctx)
 	if tx != nil {
 		_, err = tx.Exec(ctx, query, args...)
 	} else {
@@ -139,22 +125,25 @@ func (r *DeliveryRepository) GetAvailableCourier(ctx context.Context) (*model.Co
 	return &c, nil
 }
 
-func (r *DeliveryRepository) ReleaseExpiredDeliveries(ctx context.Context) (int64, error) {
-	tx, err := r.pool.Begin(ctx)
-	if err != nil {
-		return 0, err
-	}
-	defer tx.Rollback(ctx)
-
-	deleteQuery, args, _ := psql.
+func (r *DeliveryRepository) ReleaseExpiredDeliveries(ctx context.Context) ([]int64, error) {
+	query, args, _ := psql.
 		Delete("delivery").
 		Where("deadline < CURRENT_TIMESTAMP").
 		Suffix("RETURNING courier_id").
 		ToSql()
 
-	rows, err := tx.Query(ctx, deleteQuery, args...)
+	var rows pgx.Rows
+	var err error
+
+	tx := GetTx(ctx)
+	if tx != nil {
+		rows, err = tx.Query(ctx, query, args...)
+	} else {
+		rows, err = r.pool.Query(ctx, query, args...)
+	}
+
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 	defer rows.Close()
 
@@ -162,40 +151,14 @@ func (r *DeliveryRepository) ReleaseExpiredDeliveries(ctx context.Context) (int6
 	for rows.Next() {
 		var courierID int64
 		if err := rows.Scan(&courierID); err != nil {
-			return 0, err
+			return nil, err
 		}
 		courierIDs = append(courierIDs, courierID)
 	}
 
 	if err := rows.Err(); err != nil {
-		return 0, err
+		return nil, err
 	}
 
-	if len(courierIDs) == 0 {
-		if err := tx.Commit(ctx); err != nil {
-			return 0, err
-		}
-		return 0, nil
-	}
-
-	updateQuery, updateArgs, _ := psql.
-		Update("couriers").
-		Set("status", "available").
-		Where(sq.Eq{"id": courierIDs}).
-		ToSql()
-
-	result, err := tx.Exec(ctx, updateQuery, updateArgs...)
-	if err != nil {
-		return 0, err
-	}
-
-	if err := tx.Commit(ctx); err != nil {
-		return 0, err
-	}
-
-	return result.RowsAffected(), nil
-}
-
-func (r *DeliveryRepository) BeginTx(ctx context.Context) (pgx.Tx, error) {
-	return r.pool.Begin(ctx)
+	return courierIDs, nil
 }

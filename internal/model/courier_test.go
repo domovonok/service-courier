@@ -1,8 +1,9 @@
-package model
+package model_test
 
 import (
 	"testing"
 
+	"github.com/Avito-courses/course-go-avito-domovonok/internal/model"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -11,12 +12,12 @@ func TestCourier_ValidateData(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		courier  Courier
+		courier  model.Courier
 		expected bool
 	}{
 		{
 			name: "valid courier with on_foot transport",
-			courier: Courier{
+			courier: model.Courier{
 				Name:          "John Doe",
 				Phone:         "+1234567890",
 				Status:        "available",
@@ -26,7 +27,7 @@ func TestCourier_ValidateData(t *testing.T) {
 		},
 		{
 			name: "valid courier with scooter transport",
-			courier: Courier{
+			courier: model.Courier{
 				Name:          "Jane Smith",
 				Phone:         "+9876543210",
 				Status:        "busy",
@@ -36,7 +37,7 @@ func TestCourier_ValidateData(t *testing.T) {
 		},
 		{
 			name: "valid courier with car transport",
-			courier: Courier{
+			courier: model.Courier{
 				Name:          "Bob Brown",
 				Phone:         "1234567890",
 				Status:        "available",
@@ -46,7 +47,7 @@ func TestCourier_ValidateData(t *testing.T) {
 		},
 		{
 			name: "invalid - empty name",
-			courier: Courier{
+			courier: model.Courier{
 				Name:          "",
 				Phone:         "+1234567890",
 				Status:        "available",
@@ -56,7 +57,7 @@ func TestCourier_ValidateData(t *testing.T) {
 		},
 		{
 			name: "invalid - whitespace only name",
-			courier: Courier{
+			courier: model.Courier{
 				Name:          "   ",
 				Phone:         "+1234567890",
 				Status:        "available",
@@ -66,7 +67,7 @@ func TestCourier_ValidateData(t *testing.T) {
 		},
 		{
 			name: "invalid - empty status",
-			courier: Courier{
+			courier: model.Courier{
 				Name:          "John Doe",
 				Phone:         "+1234567890",
 				Status:        "",
@@ -76,7 +77,7 @@ func TestCourier_ValidateData(t *testing.T) {
 		},
 		{
 			name: "invalid - invalid phone (too short)",
-			courier: Courier{
+			courier: model.Courier{
 				Name:          "John Doe",
 				Phone:         "123",
 				Status:        "available",
@@ -86,7 +87,7 @@ func TestCourier_ValidateData(t *testing.T) {
 		},
 		{
 			name: "invalid - invalid phone (starts with 0)",
-			courier: Courier{
+			courier: model.Courier{
 				Name:          "John Doe",
 				Phone:         "0123456789",
 				Status:        "available",
@@ -96,7 +97,7 @@ func TestCourier_ValidateData(t *testing.T) {
 		},
 		{
 			name: "invalid - invalid phone (contains letters)",
-			courier: Courier{
+			courier: model.Courier{
 				Name:          "John Doe",
 				Phone:         "123abc7890",
 				Status:        "available",
@@ -106,7 +107,7 @@ func TestCourier_ValidateData(t *testing.T) {
 		},
 		{
 			name: "invalid - invalid transport type",
-			courier: Courier{
+			courier: model.Courier{
 				Name:          "John Doe",
 				Phone:         "+1234567890",
 				Status:        "available",
@@ -116,7 +117,7 @@ func TestCourier_ValidateData(t *testing.T) {
 		},
 		{
 			name: "invalid - empty transport type",
-			courier: Courier{
+			courier: model.Courier{
 				Name:          "John Doe",
 				Phone:         "+1234567890",
 				Status:        "available",
@@ -141,12 +142,12 @@ func TestCourier_Validate(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		courier  Courier
+		courier  model.Courier
 		expected bool
 	}{
 		{
 			name: "valid courier with ID",
-			courier: Courier{
+			courier: model.Courier{
 				ID:            1,
 				Name:          "John Doe",
 				Phone:         "+1234567890",
@@ -157,7 +158,7 @@ func TestCourier_Validate(t *testing.T) {
 		},
 		{
 			name: "invalid - zero ID",
-			courier: Courier{
+			courier: model.Courier{
 				ID:            0,
 				Name:          "John Doe",
 				Phone:         "+1234567890",
@@ -168,7 +169,7 @@ func TestCourier_Validate(t *testing.T) {
 		},
 		{
 			name: "invalid - negative ID",
-			courier: Courier{
+			courier: model.Courier{
 				ID:            -1,
 				Name:          "John Doe",
 				Phone:         "+1234567890",
@@ -179,7 +180,7 @@ func TestCourier_Validate(t *testing.T) {
 		},
 		{
 			name: "invalid - valid ID but invalid data",
-			courier: Courier{
+			courier: model.Courier{
 				ID:            1,
 				Name:          "",
 				Phone:         "+1234567890",

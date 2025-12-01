@@ -5,33 +5,32 @@ import (
 	"log"
 	"time"
 
+	"github.com/Avito-courses/course-go-avito-domovonok/internal/factory"
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/model"
-	"github.com/jackc/pgx/v5"
+	"github.com/Avito-courses/course-go-avito-domovonok/internal/transaction"
 )
 
 type deliveryRepository interface {
 	GetAvailableCourier(ctx context.Context) (*model.Courier, error)
 	GetByOrderID(ctx context.Context, orderID string) (*model.Delivery, error)
-	Create(ctx context.Context, tx pgx.Tx, delivery *model.Delivery) (int64, error)
-	DeleteByOrderID(ctx context.Context, tx pgx.Tx, orderID string) error
-	UpdateCourierStatus(ctx context.Context, tx pgx.Tx, courierID int64, status string) error
-	BeginTx(ctx context.Context) (pgx.Tx, error)
-	ReleaseExpiredDeliveries(ctx context.Context) (int64, error)
-}
-
-type deliveryTimeCalculator interface {
-	CalculateDeadline(transportType string, fromTime time.Time) time.Time
+	Create(ctx context.Context, delivery *model.Delivery) (int64, error)
+	DeleteByOrderID(ctx context.Context, orderID string) error
+	ReleaseExpiredDeliveries(ctx context.Context) ([]int64, error)
 }
 
 type DeliveryService struct {
-	repo           deliveryRepository
-	timeCalculator deliveryTimeCalculator
+	repo              deliveryRepository
+	courierRepo       courierRepository
+	calculatorFactory factory.DeliveryTimeCalculatorFactory
+	txManager         transaction.Manager
 }
 
-func NewDeliveryService(repo deliveryRepository, timeCalculator deliveryTimeCalculator) *DeliveryService {
+func NewDeliveryService(repo deliveryRepository, courierRepo courierRepository, calculatorFactory factory.DeliveryTimeCalculatorFactory, txManager transaction.Manager) *DeliveryService {
 	return &DeliveryService{
-		repo:           repo,
-		timeCalculator: timeCalculator,
+		repo:              repo,
+		courierRepo:       courierRepo,
+		calculatorFactory: calculatorFactory,
+		txManager:         txManager,
 	}
 }
 
@@ -40,38 +39,43 @@ func (u *DeliveryService) AssignCourier(ctx context.Context, orderID string) (*m
 		return nil, nil, model.ErrInvalidInput
 	}
 
-	tx, err := u.repo.BeginTx(ctx)
+	var courier *model.Courier
+	var delivery *model.Delivery
+
+	err := u.txManager.RunInTransaction(ctx, func(txCtx context.Context) error {
+		var err error
+
+		courier, err = u.repo.GetAvailableCourier(txCtx)
+		if err != nil {
+			return err
+		}
+
+		assignedAt := time.Now()
+		calculator := u.calculatorFactory.CreateCalculator(courier.TransportType)
+		deadline := calculator.CalculateDeadline(assignedAt)
+
+		delivery = &model.Delivery{
+			CourierID:  courier.ID,
+			OrderID:    orderID,
+			AssignedAt: assignedAt,
+			Deadline:   deadline,
+		}
+
+		deliveryID, err := u.repo.Create(txCtx, delivery)
+		if err != nil {
+			return err
+		}
+		delivery.ID = deliveryID
+
+		courier.Status = "busy"
+		if err := u.courierRepo.Update(txCtx, courier); err != nil {
+			return err
+		}
+
+		return nil
+	})
+
 	if err != nil {
-		return nil, nil, err
-	}
-	defer tx.Rollback(ctx)
-
-	courier, err := u.repo.GetAvailableCourier(ctx)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	assignedAt := time.Now()
-	deadline := u.timeCalculator.CalculateDeadline(courier.TransportType, assignedAt)
-
-	delivery := &model.Delivery{
-		CourierID:  courier.ID,
-		OrderID:    orderID,
-		AssignedAt: assignedAt,
-		Deadline:   deadline,
-	}
-
-	deliveryID, err := u.repo.Create(ctx, tx, delivery)
-	if err != nil {
-		return nil, nil, err
-	}
-	delivery.ID = deliveryID
-
-	if err := u.repo.UpdateCourierStatus(ctx, tx, courier.ID, "busy"); err != nil {
-		return nil, nil, err
-	}
-
-	if err := tx.Commit(ctx); err != nil {
 		return nil, nil, err
 	}
 
@@ -83,34 +87,61 @@ func (u *DeliveryService) UnassignCourier(ctx context.Context, orderID string) (
 		return 0, model.ErrInvalidInput
 	}
 
-	tx, err := u.repo.BeginTx(ctx)
+	var courierID int64
+
+	err := u.txManager.RunInTransaction(ctx, func(txCtx context.Context) error {
+		delivery, err := u.repo.GetByOrderID(txCtx, orderID)
+		if err != nil {
+			return err
+		}
+		courierID = delivery.CourierID
+
+		if err := u.repo.DeleteByOrderID(txCtx, orderID); err != nil {
+			return err
+		}
+
+		courier, err := u.courierRepo.GetByID(txCtx, courierID)
+		if err != nil {
+			return err
+		}
+
+		courier.Status = "available"
+		if err := u.courierRepo.Update(txCtx, courier); err != nil {
+			return err
+		}
+
+		return nil
+	})
+
 	if err != nil {
 		return 0, err
 	}
-	defer tx.Rollback(ctx)
 
-	delivery, err := u.repo.GetByOrderID(ctx, orderID)
-	if err != nil {
-		return 0, err
-	}
-
-	if err := u.repo.DeleteByOrderID(ctx, tx, orderID); err != nil {
-		return 0, err
-	}
-
-	if err := u.repo.UpdateCourierStatus(ctx, tx, delivery.CourierID, "available"); err != nil {
-		return 0, err
-	}
-
-	if err := tx.Commit(ctx); err != nil {
-		return 0, err
-	}
-
-	return delivery.CourierID, nil
+	return courierID, nil
 }
 
 func (s *DeliveryService) CheckExpiredDeliveries(ctx context.Context) error {
-	releasedCount, err := s.repo.ReleaseExpiredDeliveries(ctx)
+	var releasedCount int64
+
+	err := s.txManager.RunInTransaction(ctx, func(txCtx context.Context) error {
+		courierIDs, err := s.repo.ReleaseExpiredDeliveries(txCtx)
+		if err != nil {
+			return err
+		}
+
+		if len(courierIDs) == 0 {
+			return nil
+		}
+
+		count, err := s.courierRepo.UpdateStatusByIDs(txCtx, courierIDs, "available")
+		if err != nil {
+			return err
+		}
+
+		releasedCount = count
+		return nil
+	})
+
 	if err != nil {
 		return err
 	}
@@ -120,23 +151,4 @@ func (s *DeliveryService) CheckExpiredDeliveries(ctx context.Context) error {
 	}
 
 	return nil
-}
-
-func (s *DeliveryService) StartExpirationChecker(ctx context.Context, interval time.Duration) {
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
-
-	log.Printf("Starting delivery expiration checker with interval: %v", interval)
-
-	for {
-		select {
-		case <-ctx.Done():
-			log.Println("Stopping delivery expiration checker")
-			return
-		case <-ticker.C:
-			if err := s.CheckExpiredDeliveries(ctx); err != nil {
-				log.Printf("Error checking expired deliveries: %v", err)
-			}
-		}
-	}
 }

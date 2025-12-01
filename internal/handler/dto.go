@@ -6,7 +6,7 @@ import (
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/model"
 )
 
-type courierDTO struct {
+type CourierDTO struct {
 	ID            int64  `json:"id"`
 	Name          string `json:"name"`
 	Phone         string `json:"phone"`
@@ -14,8 +14,8 @@ type courierDTO struct {
 	TransportType string `json:"transport_type"`
 }
 
-func toDTO(c *model.Courier) courierDTO {
-	return courierDTO{
+func toDTO(c *model.Courier) CourierDTO {
+	return CourierDTO{
 		ID:            c.ID,
 		Name:          c.Name,
 		Phone:         c.Phone,
@@ -24,7 +24,7 @@ func toDTO(c *model.Courier) courierDTO {
 	}
 }
 
-func fromDTO(dto *courierDTO) *model.Courier {
+func fromDTO(dto *CourierDTO) *model.Courier {
 	return &model.Courier{
 		ID:            dto.ID,
 		Name:          dto.Name,
@@ -34,22 +34,22 @@ func fromDTO(dto *courierDTO) *model.Courier {
 	}
 }
 
-type assignRequestDTO struct {
+type AssignRequestDTO struct {
 	OrderID string `json:"order_id"`
 }
 
-type assignResponseDTO struct {
+type AssignResponseDTO struct {
 	CourierID        int64     `json:"courier_id"`
 	OrderID          string    `json:"order_id"`
 	TransportType    string    `json:"transport_type"`
 	DeliveryDeadline time.Time `json:"delivery_deadline"`
 }
 
-type unassignRequestDTO struct {
+type UnassignRequestDTO struct {
 	OrderID string `json:"order_id"`
 }
 
-type unassignResponseDTO struct {
+type UnassignResponseDTO struct {
 	OrderID   string `json:"order_id"`
 	Status    string `json:"status"`
 	CourierID int64  `json:"courier_id"`

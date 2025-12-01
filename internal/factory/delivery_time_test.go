@@ -1,16 +1,17 @@
-package factory
+package factory_test
 
 import (
 	"testing"
 	"time"
 
+	"github.com/Avito-courses/course-go-avito-domovonok/internal/factory"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestDeliveryTimeFactory_CalculateDeadline(t *testing.T) {
+func TestDeliveryTimeCalculatorFactory_CreateCalculator(t *testing.T) {
 	t.Parallel()
 
-	factory := NewDeliveryTimeFactory()
+	f := factory.NewDeliveryTimeCalculatorFactory()
 	baseTime := time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC)
 
 	tests := []struct {
@@ -20,17 +21,17 @@ func TestDeliveryTimeFactory_CalculateDeadline(t *testing.T) {
 	}{
 		{
 			name:          "on_foot transport",
-			transportType: TransportOnFoot,
+			transportType: factory.TransportOnFoot,
 			expected:      30 * time.Minute,
 		},
 		{
 			name:          "scooter transport",
-			transportType: TransportScooter,
+			transportType: factory.TransportScooter,
 			expected:      15 * time.Minute,
 		},
 		{
 			name:          "car transport",
-			transportType: TransportCar,
+			transportType: factory.TransportCar,
 			expected:      5 * time.Minute,
 		},
 		{
@@ -49,11 +50,11 @@ func TestDeliveryTimeFactory_CalculateDeadline(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			result := factory.CalculateDeadline(tt.transportType, baseTime)
+			calculator := f.CreateCalculator(tt.transportType)
+			result := calculator.CalculateDeadline(baseTime)
 			expected := baseTime.Add(tt.expected)
 
 			assert.Equal(t, expected, result)
 		})
 	}
 }
-

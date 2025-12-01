@@ -1,4 +1,4 @@
-package handler
+package handler_test
 
 import (
 	"bytes"
@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/Avito-courses/course-go-avito-domovonok/internal/handler"
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/handler/mocks"
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/model"
 	"github.com/go-chi/chi/v5"
@@ -26,12 +27,12 @@ func TestCourierHandler_Ping(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockService := mocks.NewMockcourierService(ctrl)
-	handler := NewCourierHandler(mockService)
+	h := handler.NewCourierHandler(mockService)
 
 	req := httptest.NewRequest(http.MethodGet, "/ping", nil)
 	w := httptest.NewRecorder()
 
-	handler.Ping(w, req)
+	h.Ping(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
@@ -75,12 +76,12 @@ func TestCourierHandler_Healthcheck(t *testing.T) {
 			mockService := mocks.NewMockcourierService(ctrl)
 			tt.mockSetup(mockService)
 
-			handler := NewCourierHandler(mockService)
+			h := handler.NewCourierHandler(mockService)
 
 			req := httptest.NewRequest(http.MethodGet, "/health", nil)
 			w := httptest.NewRecorder()
 
-			handler.Healthcheck(w, req)
+			h.Healthcheck(w, req)
 
 			assert.Equal(t, tt.expectedStatus, w.Code)
 		})
@@ -99,7 +100,7 @@ func TestCourierHandler_Create(t *testing.T) {
 	}{
 		{
 			name: "successful creation",
-			requestBody: courierDTO{
+			requestBody: handler.CourierDTO{
 				Name:          "John Doe",
 				Phone:         "+1234567890",
 				Status:        "available",
@@ -115,7 +116,7 @@ func TestCourierHandler_Create(t *testing.T) {
 			},
 			expectedStatus: http.StatusCreated,
 			checkResponse: func(t *testing.T, w *httptest.ResponseRecorder) {
-				var response courierDTO
+				var response handler.CourierDTO
 				err := json.NewDecoder(w.Body).Decode(&response)
 				require.NoError(t, err)
 				assert.Equal(t, int64(1), response.ID)
@@ -128,7 +129,7 @@ func TestCourierHandler_Create(t *testing.T) {
 			mockSetup:      func(m *mocks.MockcourierService) {},
 			expectedStatus: http.StatusBadRequest,
 			checkResponse: func(t *testing.T, w *httptest.ResponseRecorder) {
-				var response httpError
+				var response handler.HTTPError
 				err := json.NewDecoder(w.Body).Decode(&response)
 				require.NoError(t, err)
 				assert.Equal(t, "invalid input", response.Message)
@@ -136,7 +137,7 @@ func TestCourierHandler_Create(t *testing.T) {
 		},
 		{
 			name: "service returns invalid input error",
-			requestBody: courierDTO{
+			requestBody: handler.CourierDTO{
 				Name:          "",
 				Phone:         "+1234567890",
 				Status:        "available",
@@ -161,13 +162,13 @@ func TestCourierHandler_Create(t *testing.T) {
 			mockService := mocks.NewMockcourierService(ctrl)
 			tt.mockSetup(mockService)
 
-			handler := NewCourierHandler(mockService)
+			h := handler.NewCourierHandler(mockService)
 
 			body, _ := json.Marshal(tt.requestBody)
 			req := httptest.NewRequest(http.MethodPost, "/couriers", bytes.NewReader(body))
 			w := httptest.NewRecorder()
 
-			handler.Create(w, req)
+			h.Create(w, req)
 
 			assert.Equal(t, tt.expectedStatus, w.Code)
 			if tt.checkResponse != nil {
@@ -230,7 +231,7 @@ func TestCourierHandler_Get(t *testing.T) {
 			mockService := mocks.NewMockcourierService(ctrl)
 			tt.mockSetup(mockService)
 
-			handler := NewCourierHandler(mockService)
+			h := handler.NewCourierHandler(mockService)
 
 			req := httptest.NewRequest(http.MethodGet, "/couriers/"+tt.courierID, nil)
 			w := httptest.NewRecorder()
@@ -239,7 +240,7 @@ func TestCourierHandler_Get(t *testing.T) {
 			rctx.URLParams.Add("id", tt.courierID)
 			req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
 
-			handler.Get(w, req)
+			h.Get(w, req)
 
 			assert.Equal(t, tt.expectedStatus, w.Code)
 		})
@@ -286,12 +287,12 @@ func TestCourierHandler_List(t *testing.T) {
 			mockService := mocks.NewMockcourierService(ctrl)
 			tt.mockSetup(mockService)
 
-			handler := NewCourierHandler(mockService)
+			h := handler.NewCourierHandler(mockService)
 
 			req := httptest.NewRequest(http.MethodGet, "/couriers", nil)
 			w := httptest.NewRecorder()
 
-			handler.List(w, req)
+			h.List(w, req)
 
 			assert.Equal(t, tt.expectedStatus, w.Code)
 		})
@@ -309,7 +310,7 @@ func TestCourierHandler_Update(t *testing.T) {
 	}{
 		{
 			name: "successful update",
-			requestBody: courierDTO{
+			requestBody: handler.CourierDTO{
 				ID:            1,
 				Name:          "John Doe Updated",
 				Phone:         "+1234567890",
@@ -343,13 +344,13 @@ func TestCourierHandler_Update(t *testing.T) {
 			mockService := mocks.NewMockcourierService(ctrl)
 			tt.mockSetup(mockService)
 
-			handler := NewCourierHandler(mockService)
+			h := handler.NewCourierHandler(mockService)
 
 			body, _ := json.Marshal(tt.requestBody)
 			req := httptest.NewRequest(http.MethodPut, "/couriers", bytes.NewReader(body))
 			w := httptest.NewRecorder()
 
-			handler.Update(w, req)
+			h.Update(w, req)
 
 			assert.Equal(t, tt.expectedStatus, w.Code)
 		})

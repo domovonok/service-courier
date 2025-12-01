@@ -3,6 +3,7 @@ package integration
 import (
 	"context"
 	"fmt"
+	"os"
 	"testing"
 	"time"
 
@@ -10,69 +11,45 @@ import (
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/model"
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/repository/postgres"
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/service"
+	"github.com/Avito-courses/course-go-avito-domovonok/tests/testdb"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/testcontainers/testcontainers-go"
-	pgcontainer "github.com/testcontainers/testcontainers-go/modules/postgres"
-	"github.com/testcontainers/testcontainers-go/wait"
 )
 
-func setupTestDB(t *testing.T) (*pgxpool.Pool, func()) {
-	t.Helper()
+var testDB *testdb.TestDatabase
 
+func TestMain(m *testing.M) {
 	ctx := context.Background()
 
-	pgContainer, err := pgcontainer.Run(ctx,
-		"postgres:15",
-		pgcontainer.WithDatabase("testdb"),
-		pgcontainer.WithUsername("testuser"),
-		pgcontainer.WithPassword("testpass"),
-		testcontainers.WithWaitStrategy(
-			wait.ForLog("database system is ready to accept connections").
-				WithOccurrence(2).
-				WithStartupTimeout(5*time.Second)),
-	)
-	require.NoError(t, err)
+	db, err := testdb.SetupTestDatabase(ctx)
+	if err != nil {
+		panic(fmt.Sprintf("failed to setup test database: %v", err))
+	}
+	testDB = db
 
-	connString, err := pgContainer.ConnectionString(ctx)
-	require.NoError(t, err)
+	code := m.Run()
 
-	pool, err := pgxpool.New(ctx, connString)
-	require.NoError(t, err)
+	_ = testDB.Teardown(ctx)
 
-	_, err = pool.Exec(ctx, `
-		CREATE TABLE IF NOT EXISTS couriers (
-			id             BIGSERIAL PRIMARY KEY,
-			name           TEXT NOT NULL,
-			phone          TEXT NOT NULL UNIQUE,
-			status         TEXT NOT NULL DEFAULT 'available',
-			transport_type TEXT NOT NULL DEFAULT 'on_foot',
-			created_at     TIMESTAMP DEFAULT NOW(),
-			updated_at     TIMESTAMP DEFAULT NOW()
-		);
+	os.Exit(code)
+}
 
-		CREATE TABLE IF NOT EXISTS delivery (
-			id          BIGSERIAL PRIMARY KEY,
-			courier_id  BIGINT NOT NULL,
-			order_id    VARCHAR(255) NOT NULL,
-			assigned_at TIMESTAMP NOT NULL DEFAULT NOW(),
-			deadline    TIMESTAMP NOT NULL
-		);
-	`)
-	require.NoError(t, err)
+func cleanupTestData(t *testing.T, pool *pgxpool.Pool) {
+	t.Helper()
 
-	cleanup := func() {
-		pool.Close()
-		_ = pgContainer.Terminate(ctx)
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
 	}
 
-	return pool, cleanup
+	ctx := context.Background()
+	err := testdb.CleanupTables(ctx, pool)
+	require.NoError(t, err)
 }
 
 func TestCourierIntegration_CreateAndGet(t *testing.T) {
-	pool, cleanup := setupTestDB(t)
-	defer cleanup()
+	pool := testDB.Pool
+	defer cleanupTestData(t, pool)
 
 	ctx := context.Background()
 	repo := postgres.NewCourierRepository(pool)
@@ -102,8 +79,8 @@ func TestCourierIntegration_CreateAndGet(t *testing.T) {
 }
 
 func TestCourierIntegration_List(t *testing.T) {
-	pool, cleanup := setupTestDB(t)
-	defer cleanup()
+	pool := testDB.Pool
+	defer cleanupTestData(t, pool)
 
 	ctx := context.Background()
 	repo := postgres.NewCourierRepository(pool)
@@ -126,8 +103,8 @@ func TestCourierIntegration_List(t *testing.T) {
 }
 
 func TestCourierIntegration_Update(t *testing.T) {
-	pool, cleanup := setupTestDB(t)
-	defer cleanup()
+	pool := testDB.Pool
+	defer cleanupTestData(t, pool)
 
 	ctx := context.Background()
 	repo := postgres.NewCourierRepository(pool)
@@ -161,8 +138,8 @@ func TestCourierIntegration_Update(t *testing.T) {
 }
 
 func TestCourierIntegration_CreateDuplicate(t *testing.T) {
-	pool, cleanup := setupTestDB(t)
-	defer cleanup()
+	pool := testDB.Pool
+	defer cleanupTestData(t, pool)
 
 	ctx := context.Background()
 	repo := postgres.NewCourierRepository(pool)
@@ -191,8 +168,8 @@ func TestCourierIntegration_CreateDuplicate(t *testing.T) {
 }
 
 func TestCourierIntegration_GetNonExistent(t *testing.T) {
-	pool, cleanup := setupTestDB(t)
-	defer cleanup()
+	pool := testDB.Pool
+	defer cleanupTestData(t, pool)
 
 	ctx := context.Background()
 	repo := postgres.NewCourierRepository(pool)
@@ -204,8 +181,8 @@ func TestCourierIntegration_GetNonExistent(t *testing.T) {
 }
 
 func TestDeliveryIntegration_AssignAndUnassign(t *testing.T) {
-	pool, cleanup := setupTestDB(t)
-	defer cleanup()
+	pool := testDB.Pool
+	defer cleanupTestData(t, pool)
 
 	ctx := context.Background()
 	courierRepo := postgres.NewCourierRepository(pool)
@@ -222,8 +199,9 @@ func TestDeliveryIntegration_AssignAndUnassign(t *testing.T) {
 	require.NoError(t, err)
 
 	deliveryRepo := postgres.NewDeliveryRepository(pool)
-	timeFactory := factory.NewDeliveryTimeFactory()
-	deliverySvc := service.NewDeliveryService(deliveryRepo, timeFactory)
+	calculatorFactory := factory.NewDeliveryTimeCalculatorFactory()
+	txManager := postgres.NewTransactionManager(pool)
+	deliverySvc := service.NewDeliveryService(deliveryRepo, courierRepo, calculatorFactory, txManager)
 
 	assignedCourier, delivery, err := deliverySvc.AssignCourier(ctx, "order-123")
 	require.NoError(t, err)
@@ -247,8 +225,8 @@ func TestDeliveryIntegration_AssignAndUnassign(t *testing.T) {
 }
 
 func TestDeliveryIntegration_AssignMultipleCouriers(t *testing.T) {
-	pool, cleanup := setupTestDB(t)
-	defer cleanup()
+	pool := testDB.Pool
+	defer cleanupTestData(t, pool)
 
 	ctx := context.Background()
 	courierRepo := postgres.NewCourierRepository(pool)
@@ -266,8 +244,9 @@ func TestDeliveryIntegration_AssignMultipleCouriers(t *testing.T) {
 	}
 
 	deliveryRepo := postgres.NewDeliveryRepository(pool)
-	timeFactory := factory.NewDeliveryTimeFactory()
-	deliverySvc := service.NewDeliveryService(deliveryRepo, timeFactory)
+	calculatorFactory := factory.NewDeliveryTimeCalculatorFactory()
+	txManager := postgres.NewTransactionManager(pool)
+	deliverySvc := service.NewDeliveryService(deliveryRepo, courierRepo, calculatorFactory, txManager)
 
 	courier1, delivery1, err := deliverySvc.AssignCourier(ctx, "order-1")
 	require.NoError(t, err)
@@ -286,8 +265,8 @@ func TestDeliveryIntegration_AssignMultipleCouriers(t *testing.T) {
 }
 
 func TestDeliveryIntegration_NoAvailableCouriers(t *testing.T) {
-	pool, cleanup := setupTestDB(t)
-	defer cleanup()
+	pool := testDB.Pool
+	defer cleanupTestData(t, pool)
 
 	ctx := context.Background()
 	courierRepo := postgres.NewCourierRepository(pool)
@@ -303,8 +282,9 @@ func TestDeliveryIntegration_NoAvailableCouriers(t *testing.T) {
 	require.NoError(t, err)
 
 	deliveryRepo := postgres.NewDeliveryRepository(pool)
-	timeFactory := factory.NewDeliveryTimeFactory()
-	deliverySvc := service.NewDeliveryService(deliveryRepo, timeFactory)
+	calculatorFactory := factory.NewDeliveryTimeCalculatorFactory()
+	txManager := postgres.NewTransactionManager(pool)
+	deliverySvc := service.NewDeliveryService(deliveryRepo, courierRepo, calculatorFactory, txManager)
 
 	_, _, err = deliverySvc.AssignCourier(ctx, "order-1")
 	require.NoError(t, err)
@@ -315,13 +295,15 @@ func TestDeliveryIntegration_NoAvailableCouriers(t *testing.T) {
 }
 
 func TestDeliveryIntegration_UnassignNonExistent(t *testing.T) {
-	pool, cleanup := setupTestDB(t)
-	defer cleanup()
+	pool := testDB.Pool
+	defer cleanupTestData(t, pool)
 
 	ctx := context.Background()
+	courierRepo := postgres.NewCourierRepository(pool)
 	deliveryRepo := postgres.NewDeliveryRepository(pool)
-	timeFactory := factory.NewDeliveryTimeFactory()
-	deliverySvc := service.NewDeliveryService(deliveryRepo, timeFactory)
+	calculatorFactory := factory.NewDeliveryTimeCalculatorFactory()
+	txManager := postgres.NewTransactionManager(pool)
+	deliverySvc := service.NewDeliveryService(deliveryRepo, courierRepo, calculatorFactory, txManager)
 
 	_, err := deliverySvc.UnassignCourier(ctx, "non-existent-order")
 	assert.Error(t, err)
@@ -329,8 +311,8 @@ func TestDeliveryIntegration_UnassignNonExistent(t *testing.T) {
 }
 
 func TestDeliveryIntegration_ExpiredDeliveries(t *testing.T) {
-	pool, cleanup := setupTestDB(t)
-	defer cleanup()
+	pool := testDB.Pool
+	defer cleanupTestData(t, pool)
 
 	ctx := context.Background()
 	courierRepo := postgres.NewCourierRepository(pool)
@@ -346,8 +328,9 @@ func TestDeliveryIntegration_ExpiredDeliveries(t *testing.T) {
 	require.NoError(t, err)
 
 	deliveryRepo := postgres.NewDeliveryRepository(pool)
-	timeFactory := factory.NewDeliveryTimeFactory()
-	deliverySvc := service.NewDeliveryService(deliveryRepo, timeFactory)
+	calculatorFactory := factory.NewDeliveryTimeCalculatorFactory()
+	txManager := postgres.NewTransactionManager(pool)
+	deliverySvc := service.NewDeliveryService(deliveryRepo, courierRepo, calculatorFactory, txManager)
 
 	assignedCourier, delivery, err := deliverySvc.AssignCourier(ctx, "order-test")
 	require.NoError(t, err)
@@ -370,16 +353,17 @@ func TestDeliveryIntegration_ExpiredDeliveries(t *testing.T) {
 }
 
 func TestDeliveryIntegration_DeadlineCalculation(t *testing.T) {
-	pool, cleanup := setupTestDB(t)
-	defer cleanup()
+	pool := testDB.Pool
+	defer cleanupTestData(t, pool)
 
 	ctx := context.Background()
 	courierRepo := postgres.NewCourierRepository(pool)
 	courierSvc := service.NewCourierService(courierRepo)
 
 	deliveryRepo := postgres.NewDeliveryRepository(pool)
-	timeFactory := factory.NewDeliveryTimeFactory()
-	deliverySvc := service.NewDeliveryService(deliveryRepo, timeFactory)
+	calculatorFactory := factory.NewDeliveryTimeCalculatorFactory()
+	txManager := postgres.NewTransactionManager(pool)
+	deliverySvc := service.NewDeliveryService(deliveryRepo, courierRepo, calculatorFactory, txManager)
 
 	transportTypes := []struct {
 		transportType    string

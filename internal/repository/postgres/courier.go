@@ -53,9 +53,18 @@ func (r *CourierRepository) GetByID(ctx context.Context, id int64) (*model.Couri
 		ToSql()
 
 	var c model.Courier
+	var err error
 
-	if err := r.pool.QueryRow(ctx, query, args...).
-		Scan(&c.ID, &c.Name, &c.Phone, &c.Status, &c.TransportType); err != nil {
+	tx := GetTx(ctx)
+	if tx != nil {
+		err = tx.QueryRow(ctx, query, args...).
+			Scan(&c.ID, &c.Name, &c.Phone, &c.Status, &c.TransportType)
+	} else {
+		err = r.pool.QueryRow(ctx, query, args...).
+			Scan(&c.ID, &c.Name, &c.Phone, &c.Status, &c.TransportType)
+	}
+
+	if err != nil {
 		return nil, r.handleError(err)
 	}
 
@@ -100,7 +109,16 @@ func (r *CourierRepository) Update(ctx context.Context, courier *model.Courier) 
 		Where(sq.Eq{"id": courier.ID}).
 		ToSql()
 
-	cmdTag, err := r.pool.Exec(ctx, query, args...)
+	var cmdTag pgconn.CommandTag
+	var err error
+
+	tx := GetTx(ctx)
+	if tx != nil {
+		cmdTag, err = tx.Exec(ctx, query, args...)
+	} else {
+		cmdTag, err = r.pool.Exec(ctx, query, args...)
+	}
+
 	if err != nil {
 		return r.handleError(err)
 	}
@@ -110,6 +128,34 @@ func (r *CourierRepository) Update(ctx context.Context, courier *model.Courier) 
 	}
 
 	return nil
+}
+
+func (r *CourierRepository) UpdateStatusByIDs(ctx context.Context, courierIDs []int64, status string) (int64, error) {
+	if len(courierIDs) == 0 {
+		return 0, nil
+	}
+
+	query, args, _ := psql.
+		Update("couriers").
+		Set("status", status).
+		Where(sq.Eq{"id": courierIDs}).
+		ToSql()
+
+	var cmdTag pgconn.CommandTag
+	var err error
+
+	tx := GetTx(ctx)
+	if tx != nil {
+		cmdTag, err = tx.Exec(ctx, query, args...)
+	} else {
+		cmdTag, err = r.pool.Exec(ctx, query, args...)
+	}
+
+	if err != nil {
+		return 0, err
+	}
+
+	return cmdTag.RowsAffected(), nil
 }
 
 func (r *CourierRepository) Ping(ctx context.Context) error {
