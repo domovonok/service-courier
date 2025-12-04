@@ -12,6 +12,7 @@ type courierRepository interface {
 	GetByID(ctx context.Context, id int64) (*model.Courier, error)
 	List(ctx context.Context) ([]*model.Courier, error)
 	Update(ctx context.Context, courier *model.Courier) error
+	UpdateStatusByIDs(ctx context.Context, courierIDs []int64, status string) (int64, error)
 	Ping(ctx context.Context) error
 }
 

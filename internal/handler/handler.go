@@ -70,8 +70,8 @@ func (h *CourierHandler) Get(w http.ResponseWriter, r *http.Request) {
 	h.writeJSON(w, http.StatusOK, toDTO(courier))
 }
 
-func toCourierDTOs(couriers []*model.Courier) []courierDTO {
-	dtos := make([]courierDTO, 0, len(couriers))
+func toCourierDTOs(couriers []*model.Courier) []CourierDTO {
+	dtos := make([]CourierDTO, 0, len(couriers))
 	for _, c := range couriers {
 		dtos = append(dtos, toDTO(c))
 	}
@@ -102,7 +102,7 @@ func (h *CourierHandler) processCourierRequest(
 	successCode int,
 	serviceFunc func(ctx context.Context, courier *model.Courier) (*model.Courier, error),
 ) {
-	var dto courierDTO
+	var dto CourierDTO
 	if err := json.NewDecoder(r.Body).Decode(&dto); err != nil {
 		h.writeError(w, model.ErrInvalidInput)
 		return

@@ -7,26 +7,30 @@ import (
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/model"
 )
 
-type httpError struct {
+type HTTPError struct {
 	Code    int    `json:"-"`
 	Message string `json:"message"`
 }
 
-func (e *httpError) Error() string {
+func (e *HTTPError) Error() string {
 	return e.Message
 }
 
-func mapErrorToHTTP(err error) *httpError {
+func mapErrorToHTTP(err error) *HTTPError {
 	switch {
 	case errors.Is(err, model.ErrNotFound):
-		return &httpError{http.StatusNotFound, "not found"}
+		return &HTTPError{http.StatusNotFound, "not found"}
 	case errors.Is(err, model.ErrConflict):
-		return &httpError{http.StatusConflict, "conflict"}
+		return &HTTPError{http.StatusConflict, "conflict"}
 	case errors.Is(err, model.ErrInvalidID):
-		return &httpError{http.StatusBadRequest, "invalid id"}
+		return &HTTPError{http.StatusBadRequest, "invalid id"}
 	case errors.Is(err, model.ErrInvalidInput):
-		return &httpError{http.StatusBadRequest, "invalid input"}
+		return &HTTPError{http.StatusBadRequest, "invalid input"}
+	case errors.Is(err, model.ErrNoAvailableCouriers):
+		return &HTTPError{http.StatusConflict, "no available couriers"}
+	case errors.Is(err, model.ErrDeliveryNotFound):
+		return &HTTPError{http.StatusNotFound, "delivery not found"}
 	default:
-		return &httpError{http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError)}
+		return &HTTPError{http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError)}
 	}
 }
