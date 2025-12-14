@@ -49,14 +49,15 @@ func Load() *Config {
 			PgUser:     getEnvAsString("POSTGRES_USER", "myuser"),
 			PgPassword: getEnvAsString("POSTGRES_PASSWORD", "mypassword"),
 			Pool: PoolConfig{
-				MaxConns:          getEnvAsInt32("POSTGRES_MAX_CONNS", 20),
-				MinConns:          getEnvAsInt32("POSTGRES_MIN_CONNS", 5),
-				MaxConnLifetime:   getEnvAsDuration("POSTGRES_MAX_CONN_LIFETIME", time.Hour),
-				MaxConnIdleTime:   getEnvAsDuration("POSTGRES_MAX_CONN_IDLE_TIME", 30*time.Minute),
-				HealthCheckPeriod: getEnvAsDuration("POSTGRES_HEALTH_CHECK_PERIOD", time.Minute),
-
-				PingMaxRetries: getEnvAsInt("POSTGRES_MAX_RETRIES", 5),
-				PingRetryDelay: getEnvAsDuration("POSTGRES_RETRY_DELAY", time.Second),
+				MaxConnLifetime:       getEnvAsDuration("POSTGRES_MAX_CONN_LIFETIME", time.Hour),
+				MaxConnLifetimeJitter: getEnvAsDuration("POSTGRES_MAX_CONN_LIFETIME_JITTER", 5*time.Minute),
+				MaxConnIdleTime:       getEnvAsDuration("POSTGRES_MAX_CONN_IDLE_TIME", 30*time.Minute),
+				MaxConns:              getEnvAsInt32("POSTGRES_MAX_CONNS", 20),
+				MinConns:              getEnvAsInt32("POSTGRES_MIN_CONNS", 5),
+				MinIdleConns:          getEnvAsInt32("POSTGRES_MIN_IDLE_CONNS", 2),
+				HealthCheckPeriod:     getEnvAsDuration("POSTGRES_HEALTH_CHECK_PERIOD", time.Minute),
+				PingMaxRetries:        getEnvAsInt("POSTGRES_MAX_RETRIES", 5),
+				PingRetryDelay:        getEnvAsDuration("POSTGRES_RETRY_DELAY", time.Second),
 			},
 		},
 	}

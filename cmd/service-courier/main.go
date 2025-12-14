@@ -83,6 +83,9 @@ func initDB(ctx context.Context, cfg config.DBConfig) (*pgxpool.Pool, error) {
 		return nil, fmt.Errorf("invalid connection string: %w", err)
 	}
 
+	poolConfig.MaxConnLifetime = cfg.Pool.MaxConnLifetime
+	poolConfig.MaxConnLifetimeJitter = cfg.Pool.MaxConnLifetimeJitter
+	poolConfig.MaxConnIdleTime = cfg.Pool.MaxConnIdleTime
 	poolConfig.MaxConns = cfg.Pool.MaxConns
 	poolConfig.MinConns = cfg.Pool.MinConns
 	poolConfig.MinIdleConns = cfg.Pool.MinIdleConns
