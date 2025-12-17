@@ -7,35 +7,37 @@ import (
 	"time"
 
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/worker"
+	"github.com/stretchr/testify/mock"
 )
 
 type mockDeliveryExpirationService struct {
-	checkCalled int
-	returnError error
+	mock.Mock
 }
 
 func (m *mockDeliveryExpirationService) CheckExpiredDeliveries(ctx context.Context) error {
-	m.checkCalled++
-	return m.returnError
+	args := m.Called(ctx)
+	return args.Error(0)
 }
 
 func TestDeliveryExpirationWorker_Start(t *testing.T) {
 	t.Run("should call CheckExpiredDeliveries periodically", func(t *testing.T) {
 		mockService := &mockDeliveryExpirationService{}
+		mockService.On("CheckExpiredDeliveries", mock.Anything).Return(nil)
+
 		w := worker.NewDeliveryExpirationWorker(mockService, 50*time.Millisecond)
 
-		ctx, cancel := context.WithTimeout(context.Background(), 150*time.Millisecond)
+		ctx, cancel := context.WithTimeout(context.Background(), 190*time.Millisecond)
 		defer cancel()
 
 		w.Start(ctx)
 
-		if mockService.checkCalled < 2 {
-			t.Errorf("Expected at least 2 calls, got %d", mockService.checkCalled)
-		}
+		mockService.AssertNumberOfCalls(t, "CheckExpiredDeliveries", 3)
 	})
 
 	t.Run("should stop when context is cancelled", func(t *testing.T) {
 		mockService := &mockDeliveryExpirationService{}
+		mockService.On("CheckExpiredDeliveries", mock.Anything).Return(nil)
+
 		w := worker.NewDeliveryExpirationWorker(mockService, 100*time.Millisecond)
 
 		ctx, cancel := context.WithCancel(context.Background())
@@ -57,18 +59,16 @@ func TestDeliveryExpirationWorker_Start(t *testing.T) {
 	})
 
 	t.Run("should continue working even if service returns error", func(t *testing.T) {
-		mockService := &mockDeliveryExpirationService{
-			returnError: errors.New("test error"),
-		}
+		mockService := &mockDeliveryExpirationService{}
+		mockService.On("CheckExpiredDeliveries", mock.Anything).Return(errors.New("test error"))
+
 		w := worker.NewDeliveryExpirationWorker(mockService, 50*time.Millisecond)
 
-		ctx, cancel := context.WithTimeout(context.Background(), 150*time.Millisecond)
+		ctx, cancel := context.WithTimeout(context.Background(), 190*time.Millisecond)
 		defer cancel()
 
 		w.Start(ctx)
 
-		if mockService.checkCalled < 2 {
-			t.Errorf("Expected at least 2 calls even with errors, got %d", mockService.checkCalled)
-		}
+		mockService.AssertNumberOfCalls(t, "CheckExpiredDeliveries", 3)
 	})
 }

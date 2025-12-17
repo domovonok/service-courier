@@ -10,7 +10,28 @@ services:
       - pgdata:/var/lib/postgresql/data        # Хранилище данных
     ports:
       - "${POSTGRES_PORT}:5432"                # Проброс порта: хост:контейнер (хост берем из .env)
-
+    networks:
+      - infrastructure_default
+  service-courier:
+    build: .
+    ports:
+      - "${COURIER_PORT}:${PORT}"
+    environment:
+      - PORT=${PORT}
+      - COURIER_PORT=${COURIER_PORT}
+      - ORDER_SERVICE_HOST=${ORDER_SERVICE_HOST}
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=${POSTGRES_PORT}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    depends_on:
+      - postgres
+    networks:
+      - infrastructure_default
 volumes:
   pgdata:                         # Объявление Named Volume
 
+networks:
+  infrastructure_default:
+    external: true

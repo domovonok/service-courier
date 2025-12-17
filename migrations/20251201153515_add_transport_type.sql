@@ -1,11 +1,11 @@
 -- +goose Up
 -- +goose StatementBegin
 ALTER TABLE couriers
-    ADD COLUMN transport_type TEXT NOT NULL DEFAULT 'on_foot';
+    ADD COLUMN IF NOT EXISTS transport_type TEXT NOT NULL DEFAULT 'on_foot';
 -- +goose StatementEnd
 
 -- +goose Down
 -- +goose StatementBegin
 ALTER TABLE couriers
-    DROP COLUMN transport_type;
+    DROP COLUMN IF EXISTS transport_type;
 -- +goose StatementEnd

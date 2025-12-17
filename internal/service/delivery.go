@@ -34,9 +34,9 @@ func NewDeliveryService(repo deliveryRepository, courierRepo courierRepository, 
 	}
 }
 
-func (u *DeliveryService) AssignCourier(ctx context.Context, orderID string) (*model.Courier, *model.Delivery, error) {
+func (u *DeliveryService) AssignCourier(ctx context.Context, orderID string) (*model.Courier, error, *model.Delivery) {
 	if orderID == "" {
-		return nil, nil, model.ErrInvalidInput
+		return nil, model.ErrInvalidInput, nil
 	}
 
 	var courier *model.Courier
@@ -76,10 +76,10 @@ func (u *DeliveryService) AssignCourier(ctx context.Context, orderID string) (*m
 	})
 
 	if err != nil {
-		return nil, nil, err
+		return nil, err, nil
 	}
 
-	return courier, delivery, nil
+	return courier, nil, delivery
 }
 
 func (u *DeliveryService) UnassignCourier(ctx context.Context, orderID string) (int64, error) {

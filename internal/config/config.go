@@ -30,10 +30,16 @@ type DBConfig struct {
 	Pool       PoolConfig
 }
 
+type OrderConfig struct {
+	ServiceHost   string
+	CheckInterval time.Duration
+}
+
 type Config struct {
 	Port                  string
 	DB                    DBConfig
 	DeliveryCheckInterval time.Duration
+	Order                 OrderConfig
 }
 
 func Load() *Config {
@@ -59,6 +65,10 @@ func Load() *Config {
 				PingMaxRetries:        getEnvAsInt("POSTGRES_MAX_RETRIES", 5),
 				PingRetryDelay:        getEnvAsDuration("POSTGRES_RETRY_DELAY", time.Second),
 			},
+		},
+		Order: OrderConfig{
+			ServiceHost:   getEnvAsString("ORDER_SERVICE_HOST", "http://localhost:8081"),
+			CheckInterval: getEnvAsDuration("ORDER_CHECK_INTERVAL", 5*time.Second),
 		},
 	}
 

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/factory"
+	"github.com/Avito-courses/course-go-avito-domovonok/internal/gateway"
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/router"
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/worker"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -47,6 +48,15 @@ func main() {
 
 	expirationWorker := worker.NewDeliveryExpirationWorker(deliveryService, cfg.DeliveryCheckInterval)
 	go expirationWorker.Start(ctx)
+
+	orderGateway, err := gateway.NewOrderGateway(cfg.Order.ServiceHost)
+	if err != nil {
+		log.Fatalln("Failed to initialize order gateway:", err)
+	}
+	defer orderGateway.Close()
+
+	orderWorker := worker.NewOrderWorker(orderGateway, deliveryService, cfg.Order.CheckInterval)
+	go orderWorker.Run(ctx)
 
 	httpHandler := router.New(courierHandler, deliveryHandler)
 
