@@ -79,8 +79,8 @@ func Load() *Config {
 }
 
 func getEnvAs[T any](key string, defaultVal T, parse func(string) (T, error)) T {
-	if value := os.Getenv(key); value != "" {
-		if v, err := parse(value); err == nil {
+	if val, ok := os.LookupEnv(key); ok {
+		if v, err := parse(val); err == nil {
 			return v
 		}
 	}
