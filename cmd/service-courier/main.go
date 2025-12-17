@@ -16,17 +16,30 @@ import (
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/factory"
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/gateway"
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/handler"
+	"github.com/Avito-courses/course-go-avito-domovonok/internal/logger"
+	"github.com/Avito-courses/course-go-avito-domovonok/internal/middleware"
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/repository/postgres"
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/router"
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/service"
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/worker"
+	"go.uber.org/zap"
 )
 
 func main() {
 	cfg := config.Load()
 
+	zapLogger, err := zap.NewProduction()
+	if err != nil {
+		log.Fatalln("Failed to initialize logger:", err)
+	}
+	defer zapLogger.Sync()
+
+	appLogger := logger.NewZapLogger(zapLogger)
+
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
+
+	middleware.StartSystemMetricsCollector(ctx)
 
 	pool, err := database.NewPool(ctx, cfg.DB)
 	if err != nil {
@@ -56,7 +69,7 @@ func main() {
 	orderWorker := worker.NewOrderWorker(orderGateway, deliveryService, cfg.Order.CheckInterval)
 	go orderWorker.Run(ctx)
 
-	httpHandler := router.New(courierHandler, deliveryHandler)
+	httpHandler := router.New(courierHandler, deliveryHandler, appLogger)
 
 	srv := &http.Server{
 		Addr:    net.JoinHostPort("", cfg.Port),
