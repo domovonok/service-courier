@@ -13,7 +13,9 @@ services:
     networks:
       - infrastructure_default
   service-courier:
-    build: .
+    build:
+      context: .
+      target: service
     ports:
       - "${COURIER_PORT}:${PORT}"
     environment:
@@ -25,6 +27,24 @@ services:
       - POSTGRES_DB=${POSTGRES_DB}
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    depends_on:
+      - postgres
+    networks:
+      - infrastructure_default
+  worker:
+    build:
+      context: .
+      target: worker
+    environment:
+      - ORDER_SERVICE_HOST=${ORDER_SERVICE_HOST}
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=${POSTGRES_PORT}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - KAFKA_BROKERS=${KAFKA_BROKERS}
+      - KAFKA_ORDERS_TOPIC=${KAFKA_ORDERS_TOPIC}
+      - KAFKA_CONSUMER_GROUP=${KAFKA_CONSUMER_GROUP}
     depends_on:
       - postgres
     networks:

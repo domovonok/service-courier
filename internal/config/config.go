@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/joho/godotenv"
@@ -35,11 +36,20 @@ type OrderConfig struct {
 	CheckInterval time.Duration
 }
 
+type KafkaConfig struct {
+	Brokers            []string
+	Topic              string
+	ConsumerGroup      string
+	Version            string
+	AutoCommitInterval time.Duration
+}
+
 type Config struct {
 	Port                  string
 	DB                    DBConfig
 	DeliveryCheckInterval time.Duration
 	Order                 OrderConfig
+	Kafka                 KafkaConfig
 }
 
 func Load() *Config {
@@ -70,6 +80,13 @@ func Load() *Config {
 			ServiceHost:   getEnvAsString("ORDER_SERVICE_HOST", "http://localhost:8081"),
 			CheckInterval: getEnvAsDuration("ORDER_CHECK_INTERVAL", 5*time.Second),
 		},
+		Kafka: KafkaConfig{
+			Brokers:            getEnvAsStringSlice("KAFKA_BROKERS", []string{"kafka:9092"}),
+			Topic:              getEnvAsString("KAFKA_ORDERS_TOPIC", "orders"),
+			ConsumerGroup:      getEnvAsString("KAFKA_CONSUMER_GROUP", "courier-service"),
+			Version:            getEnvAsString("KAFKA_VERSION", "2.8.0"),
+			AutoCommitInterval: getEnvAsDuration("KAFKA_AUTOCOMMIT_INTERVAL", 1*time.Second),
+		},
 	}
 
 	pflag.StringVarP(&cfg.Port, "port", "p", cfg.Port, "Port to listen on")
@@ -79,7 +96,7 @@ func Load() *Config {
 }
 
 func getEnvAs[T any](key string, defaultVal T, parse func(string) (T, error)) T {
-	if val, ok := os.LookupEnv(key); ok {
+	if val := os.Getenv(key); val != "" {
 		if v, err := parse(val); err == nil {
 			return v
 		}
@@ -106,4 +123,14 @@ func getEnvAsInt32(key string, defaultVal int32) int32 {
 
 func getEnvAsDuration(key string, defaultVal time.Duration) time.Duration {
 	return getEnvAs(key, defaultVal, time.ParseDuration)
+}
+
+func getEnvAsStringSlice(key string, defaultVal []string) []string {
+	return getEnvAs[[]string](key, defaultVal, func(s string) ([]string, error) {
+		var result []string
+		for _, v := range strings.Split(s, ",") {
+			result = append(result, strings.TrimSpace(v))
+		}
+		return result, nil
+	})
 }

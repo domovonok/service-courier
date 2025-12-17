@@ -41,6 +41,7 @@ func (g *OrderGateway) GetOrders(ctx context.Context, from time.Time) ([]model.O
 	for _, o := range resp.Orders {
 		orders = append(orders, model.Order{
 			ID:        o.Id,
+			Status:    o.Status,
 			CreatedAt: o.CreatedAt.AsTime(),
 		})
 	}
@@ -57,6 +58,7 @@ func (g *OrderGateway) GetOrderByID(ctx context.Context, id string) (*model.Orde
 	o := resp.Order
 	return &model.Order{
 		ID:        o.Id,
+		Status:    o.Status,
 		CreatedAt: o.CreatedAt.AsTime(),
 	}, nil
 }
