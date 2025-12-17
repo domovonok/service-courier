@@ -5,6 +5,7 @@ import (
 
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/handler"
 	"github.com/go-chi/chi/v5"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 func New(courierHandler *handler.CourierHandler, deliveryHandler *handler.DeliveryHandler) http.Handler {
@@ -12,6 +13,7 @@ func New(courierHandler *handler.CourierHandler, deliveryHandler *handler.Delive
 
 	r.Get("/ping", courierHandler.Ping)
 	r.Head("/healthcheck", courierHandler.Healthcheck)
+	r.Handle("/metrics", promhttp.Handler())
 
 	r.Get("/courier/{id}", courierHandler.Get)
 	r.Get("/couriers", courierHandler.List)

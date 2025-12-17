@@ -12,6 +12,7 @@ services:
       - "${POSTGRES_PORT}:5432"                # Проброс порта: хост:контейнер (хост берем из .env)
     networks:
       - infrastructure_default
+
   service-courier:
     build:
       context: .
@@ -31,6 +32,25 @@ services:
       - postgres
     networks:
       - infrastructure_default
+      - monitoring
+
+  prometheus:
+    image: prom/prometheus
+    ports: ["9090:9090"]
+    volumes:
+      - "./prometheus.yml:/etc/prometheus/prometheus.yml"
+      - "prometheus-data:/prometheus"
+    networks:
+      - monitoring
+
+  grafana:
+    image: grafana/grafana
+    ports: [ "3000:3000" ]
+    volumes:
+      - "grafana-data:/var/lib/grafana"
+    networks:
+      - monitoring
+
   worker:
     build:
       context: .
@@ -49,9 +69,14 @@ services:
       - postgres
     networks:
       - infrastructure_default
+
 volumes:
   pgdata:                         # Объявление Named Volume
+  prometheus-data:
+  grafana-data:
 
 networks:
   infrastructure_default:
     external: true
+  monitoring:
+    driver: bridge
