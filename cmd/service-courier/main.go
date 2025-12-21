@@ -32,9 +32,9 @@ func main() {
 	if err != nil {
 		log.Fatalln("Failed to initialize logger:", err)
 	}
-	defer zapLogger.Sync()
 
 	appLogger := logger.NewZapLogger(zapLogger)
+	defer appLogger.Sync()
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 	defer stop()

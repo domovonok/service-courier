@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Avito-courses/course-go-avito-domovonok/internal/logger"
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/model"
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/service"
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/service/mocks"
@@ -172,7 +173,8 @@ func TestDeliveryService_AssignCourier(t *testing.T) {
 
 			tt.mockSetup(mockRepo, mockCourierRepo, mockFactory, mockCalc, mockTxMgr)
 
-			svc := service.NewDeliveryService(mockRepo, mockCourierRepo, mockFactory, mockTxMgr)
+			log := logger.NopLogger{}
+			svc := service.NewDeliveryService(mockRepo, mockCourierRepo, mockFactory, mockTxMgr, log)
 			courier, err, delivery := svc.AssignCourier(context.Background(), tt.orderID)
 
 			if tt.expectedErr != nil {
@@ -324,7 +326,8 @@ func TestDeliveryService_UnassignCourier(t *testing.T) {
 
 			tt.mockSetup(mockRepo, mockCourierRepo, mockTxMgr)
 
-			svc := service.NewDeliveryService(mockRepo, mockCourierRepo, mockFactory, mockTxMgr)
+			log := logger.NopLogger{}
+			svc := service.NewDeliveryService(mockRepo, mockCourierRepo, mockFactory, mockTxMgr, log)
 			courierID, err := svc.UnassignCourier(context.Background(), tt.orderID)
 
 			if tt.expectedErr != nil {
@@ -430,7 +433,8 @@ func TestDeliveryService_CheckExpiredDeliveries(t *testing.T) {
 
 			tt.mockSetup(mockRepo, mockCourierRepo, mockTxMgr)
 
-			svc := service.NewDeliveryService(mockRepo, mockCourierRepo, mockFactory, mockTxMgr)
+			log := logger.NopLogger{}
+			svc := service.NewDeliveryService(mockRepo, mockCourierRepo, mockFactory, mockTxMgr, log)
 			err := svc.CheckExpiredDeliveries(context.Background())
 
 			if tt.expectedErr != nil {

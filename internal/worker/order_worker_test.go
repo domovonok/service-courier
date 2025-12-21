@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Avito-courses/course-go-avito-domovonok/internal/logger"
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/model"
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/worker"
 	"github.com/stretchr/testify/mock"
@@ -40,7 +41,8 @@ func TestOrderWorker_Run(t *testing.T) {
 	gw.On("GetOrders", mock.Anything, mock.Anything).Return(orders, nil)
 	assigner.On("AssignCourier", mock.Anything, "order-id").Return(nil)
 
-	w := worker.NewOrderWorker(gw, assigner, 50*time.Millisecond)
+	log := logger.NopLogger{}
+	w := worker.NewOrderWorker(gw, assigner, 50*time.Millisecond, log)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()

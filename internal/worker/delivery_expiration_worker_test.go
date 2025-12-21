@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Avito-courses/course-go-avito-domovonok/internal/logger"
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/worker"
 	"github.com/stretchr/testify/mock"
 )
@@ -24,7 +25,8 @@ func TestDeliveryExpirationWorker_Start(t *testing.T) {
 		mockService := &mockDeliveryExpirationService{}
 		mockService.On("CheckExpiredDeliveries", mock.Anything).Return(nil)
 
-		w := worker.NewDeliveryExpirationWorker(mockService, 50*time.Millisecond)
+		log := logger.NopLogger{}
+		w := worker.NewDeliveryExpirationWorker(mockService, 50*time.Millisecond, log)
 
 		ctx, cancel := context.WithTimeout(context.Background(), 190*time.Millisecond)
 		defer cancel()
@@ -38,7 +40,8 @@ func TestDeliveryExpirationWorker_Start(t *testing.T) {
 		mockService := &mockDeliveryExpirationService{}
 		mockService.On("CheckExpiredDeliveries", mock.Anything).Return(nil)
 
-		w := worker.NewDeliveryExpirationWorker(mockService, 100*time.Millisecond)
+		log := logger.NopLogger{}
+		w := worker.NewDeliveryExpirationWorker(mockService, 100*time.Millisecond, log)
 
 		ctx, cancel := context.WithCancel(context.Background())
 
@@ -62,7 +65,8 @@ func TestDeliveryExpirationWorker_Start(t *testing.T) {
 		mockService := &mockDeliveryExpirationService{}
 		mockService.On("CheckExpiredDeliveries", mock.Anything).Return(errors.New("test error"))
 
-		w := worker.NewDeliveryExpirationWorker(mockService, 50*time.Millisecond)
+		log := logger.NopLogger{}
+		w := worker.NewDeliveryExpirationWorker(mockService, 50*time.Millisecond, log)
 
 		ctx, cancel := context.WithTimeout(context.Background(), 190*time.Millisecond)
 		defer cancel()

@@ -11,6 +11,7 @@ import (
 
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/handler"
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/handler/mocks"
+	"github.com/Avito-courses/course-go-avito-domovonok/internal/logger"
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -93,7 +94,8 @@ func TestDeliveryHandler_Assign(t *testing.T) {
 			mockService := mocks.NewMockdeliveryService(ctrl)
 			tt.mockSetup(mockService)
 
-			h := handler.NewDeliveryHandler(mockService)
+			log := logger.NopLogger{}
+			h := handler.NewDeliveryHandler(mockService, log)
 
 			body, _ := json.Marshal(tt.requestBody)
 			req := httptest.NewRequest(http.MethodPost, "/delivery/assign", bytes.NewReader(body))
@@ -180,7 +182,8 @@ func TestDeliveryHandler_Unassign(t *testing.T) {
 			mockService := mocks.NewMockdeliveryService(ctrl)
 			tt.mockSetup(mockService)
 
-			h := handler.NewDeliveryHandler(mockService)
+			log := logger.NopLogger{}
+			h := handler.NewDeliveryHandler(mockService, log)
 
 			body, _ := json.Marshal(tt.requestBody)
 			req := httptest.NewRequest(http.MethodPost, "/delivery/unassign", bytes.NewReader(body))
