@@ -77,7 +77,7 @@ func Load() *Config {
 			},
 		},
 		Order: OrderConfig{
-			ServiceHost:   getEnvAsString("ORDER_SERVICE_HOST", "http://localhost:8081"),
+			ServiceHost:   getEnvAsString("ORDER_SERVICE_HOST", "service-order:50051"),
 			CheckInterval: getEnvAsDuration("ORDER_CHECK_INTERVAL", 5*time.Second),
 		},
 		Kafka: KafkaConfig{
