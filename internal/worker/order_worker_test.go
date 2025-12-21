@@ -41,7 +41,7 @@ func TestOrderWorker_Run(t *testing.T) {
 	gw.On("GetOrders", mock.Anything, mock.Anything).Return(orders, nil)
 	assigner.On("AssignCourier", mock.Anything, "order-id").Return(nil)
 
-	log := logger.NopLogger{}
+	log := logger.NewNopLogger()
 	w := worker.NewOrderWorker(gw, assigner, 50*time.Millisecond, log)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)

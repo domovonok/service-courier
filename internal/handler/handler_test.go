@@ -28,7 +28,7 @@ func TestCourierHandler_Ping(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockService := mocks.NewMockcourierService(ctrl)
-	log := logger.NopLogger{}
+	log := logger.NewNopLogger()
 	h := handler.NewCourierHandler(mockService, log)
 
 	req := httptest.NewRequest(http.MethodGet, "/ping", nil)
@@ -78,7 +78,7 @@ func TestCourierHandler_Healthcheck(t *testing.T) {
 			mockService := mocks.NewMockcourierService(ctrl)
 			tt.mockSetup(mockService)
 
-			log := logger.NopLogger{}
+			log := logger.NewNopLogger()
 			h := handler.NewCourierHandler(mockService, log)
 
 			req := httptest.NewRequest(http.MethodGet, "/health", nil)
@@ -165,7 +165,7 @@ func TestCourierHandler_Create(t *testing.T) {
 			mockService := mocks.NewMockcourierService(ctrl)
 			tt.mockSetup(mockService)
 
-			log := logger.NopLogger{}
+			log := logger.NewNopLogger()
 			h := handler.NewCourierHandler(mockService, log)
 
 			body, _ := json.Marshal(tt.requestBody)
@@ -235,7 +235,7 @@ func TestCourierHandler_Get(t *testing.T) {
 			mockService := mocks.NewMockcourierService(ctrl)
 			tt.mockSetup(mockService)
 
-			log := logger.NopLogger{}
+			log := logger.NewNopLogger()
 			h := handler.NewCourierHandler(mockService, log)
 
 			req := httptest.NewRequest(http.MethodGet, "/couriers/"+tt.courierID, nil)
@@ -292,7 +292,7 @@ func TestCourierHandler_List(t *testing.T) {
 			mockService := mocks.NewMockcourierService(ctrl)
 			tt.mockSetup(mockService)
 
-			log := logger.NopLogger{}
+			log := logger.NewNopLogger()
 			h := handler.NewCourierHandler(mockService, log)
 
 			req := httptest.NewRequest(http.MethodGet, "/couriers", nil)
@@ -350,7 +350,7 @@ func TestCourierHandler_Update(t *testing.T) {
 			mockService := mocks.NewMockcourierService(ctrl)
 			tt.mockSetup(mockService)
 
-			log := logger.NopLogger{}
+			log := logger.NewNopLogger()
 			h := handler.NewCourierHandler(mockService, log)
 
 			body, _ := json.Marshal(tt.requestBody)

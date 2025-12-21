@@ -25,7 +25,7 @@ func TestDeliveryExpirationWorker_Start(t *testing.T) {
 		mockService := &mockDeliveryExpirationService{}
 		mockService.On("CheckExpiredDeliveries", mock.Anything).Return(nil)
 
-		log := logger.NopLogger{}
+		log := logger.NewNopLogger()
 		w := worker.NewDeliveryExpirationWorker(mockService, 50*time.Millisecond, log)
 
 		ctx, cancel := context.WithTimeout(context.Background(), 190*time.Millisecond)
@@ -40,7 +40,7 @@ func TestDeliveryExpirationWorker_Start(t *testing.T) {
 		mockService := &mockDeliveryExpirationService{}
 		mockService.On("CheckExpiredDeliveries", mock.Anything).Return(nil)
 
-		log := logger.NopLogger{}
+		log := logger.NewNopLogger()
 		w := worker.NewDeliveryExpirationWorker(mockService, 100*time.Millisecond, log)
 
 		ctx, cancel := context.WithCancel(context.Background())
@@ -65,7 +65,7 @@ func TestDeliveryExpirationWorker_Start(t *testing.T) {
 		mockService := &mockDeliveryExpirationService{}
 		mockService.On("CheckExpiredDeliveries", mock.Anything).Return(errors.New("test error"))
 
-		log := logger.NopLogger{}
+		log := logger.NewNopLogger()
 		w := worker.NewDeliveryExpirationWorker(mockService, 50*time.Millisecond, log)
 
 		ctx, cancel := context.WithTimeout(context.Background(), 190*time.Millisecond)

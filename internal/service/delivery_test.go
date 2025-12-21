@@ -173,7 +173,7 @@ func TestDeliveryService_AssignCourier(t *testing.T) {
 
 			tt.mockSetup(mockRepo, mockCourierRepo, mockFactory, mockCalc, mockTxMgr)
 
-			log := logger.NopLogger{}
+			log := logger.NewNopLogger()
 			svc := service.NewDeliveryService(mockRepo, mockCourierRepo, mockFactory, mockTxMgr, log)
 			courier, err, delivery := svc.AssignCourier(context.Background(), tt.orderID)
 
@@ -326,7 +326,7 @@ func TestDeliveryService_UnassignCourier(t *testing.T) {
 
 			tt.mockSetup(mockRepo, mockCourierRepo, mockTxMgr)
 
-			log := logger.NopLogger{}
+			log := logger.NewNopLogger()
 			svc := service.NewDeliveryService(mockRepo, mockCourierRepo, mockFactory, mockTxMgr, log)
 			courierID, err := svc.UnassignCourier(context.Background(), tt.orderID)
 
@@ -433,7 +433,7 @@ func TestDeliveryService_CheckExpiredDeliveries(t *testing.T) {
 
 			tt.mockSetup(mockRepo, mockCourierRepo, mockTxMgr)
 
-			log := logger.NopLogger{}
+			log := logger.NewNopLogger()
 			svc := service.NewDeliveryService(mockRepo, mockCourierRepo, mockFactory, mockTxMgr, log)
 			err := svc.CheckExpiredDeliveries(context.Background())
 

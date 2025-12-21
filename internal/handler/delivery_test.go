@@ -94,7 +94,7 @@ func TestDeliveryHandler_Assign(t *testing.T) {
 			mockService := mocks.NewMockdeliveryService(ctrl)
 			tt.mockSetup(mockService)
 
-			log := logger.NopLogger{}
+			log := logger.NewNopLogger()
 			h := handler.NewDeliveryHandler(mockService, log)
 
 			body, _ := json.Marshal(tt.requestBody)
@@ -182,7 +182,7 @@ func TestDeliveryHandler_Unassign(t *testing.T) {
 			mockService := mocks.NewMockdeliveryService(ctrl)
 			tt.mockSetup(mockService)
 
-			log := logger.NopLogger{}
+			log := logger.NewNopLogger()
 			h := handler.NewDeliveryHandler(mockService, log)
 
 			body, _ := json.Marshal(tt.requestBody)
