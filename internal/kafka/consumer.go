@@ -16,7 +16,7 @@ type Consumer struct {
 }
 
 func NewKafkaConsumer(cfg config.KafkaConfig, handler sarama.ConsumerGroupHandler, log logger.Logger) (*Consumer, error) {
-	saramaCfg, err := newSaramaConfig(cfg)
+	saramaCfg, err := newSaramaConfig(cfg.Sarama)
 	if err != nil {
 		return nil, err
 	}
@@ -38,7 +38,7 @@ func (c *Consumer) Start(ctx context.Context) {
 	go func() {
 		for {
 			if err := c.client.Consume(ctx, c.topics, c.handler); err != nil {
-				c.log.Error("consume error", logger.Error(err))
+				c.log.Error("Consume error", logger.Error(err))
 			}
 			if ctx.Err() != nil {
 				return
@@ -51,7 +51,7 @@ func (c *Consumer) Close() error {
 	return c.client.Close()
 }
 
-func newSaramaConfig(cfg config.KafkaConfig) (*sarama.Config, error) {
+func newSaramaConfig(cfg config.SaramaConfig) (*sarama.Config, error) {
 	kafkaVersion, err := sarama.ParseKafkaVersion(cfg.Version)
 	if err != nil {
 		return nil, err

@@ -31,9 +31,9 @@ func (h *CreatedHandler) Handle(ctx context.Context, message *changed.Message) e
 	if order.Status != "created" {
 		h.log.Warn(
 			"Order status changed, skipping assignment",
-			logger.String("order_id", message.OrderID),
-			logger.String("expected_status", "created"),
-			logger.String("actual_status", order.Status),
+			logger.Any("order_id", message.OrderID),
+			logger.Any("expected_status", "created"),
+			logger.Any("actual_status", order.Status),
 		)
 		return nil
 	}
@@ -45,9 +45,9 @@ func (h *CreatedHandler) Handle(ctx context.Context, message *changed.Message) e
 
 	h.log.Info(
 		"Assigned courier to order",
-		logger.Int64("courier_id", courier.ID),
-		logger.String("order_id", message.OrderID),
-		logger.Int64("delivery_id", delivery.ID),
+		logger.Any("courier_id", courier.ID),
+		logger.Any("order_id", message.OrderID),
+		logger.Any("delivery_id", delivery.ID),
 	)
 	return nil
 }

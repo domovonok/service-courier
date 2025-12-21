@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/factory"
+	"github.com/Avito-courses/course-go-avito-domovonok/internal/logger"
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/model"
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/repository/postgres"
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/service"

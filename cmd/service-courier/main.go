@@ -17,7 +17,7 @@ import (
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/gateway"
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/handler"
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/logger"
-	"github.com/Avito-courses/course-go-avito-domovonok/internal/middleware"
+	"github.com/Avito-courses/course-go-avito-domovonok/internal/metrics"
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/repository/postgres"
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/router"
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/service"
@@ -39,7 +39,8 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	middleware.StartSystemMetricsCollector(ctx)
+	prom := metrics.NewPrometheusMetrics()
+	metrics.StartSystemMetricsCollector(ctx, prom)
 
 	pool, err := database.NewPool(ctx, cfg.DB, appLogger)
 	if err != nil {
@@ -69,7 +70,7 @@ func main() {
 	orderWorker := worker.NewOrderWorker(orderGateway, deliveryService, cfg.Order.CheckInterval, appLogger)
 	go orderWorker.Run(ctx)
 
-	httpHandler := router.New(courierHandler, deliveryHandler, appLogger)
+	httpHandler := router.New(courierHandler, deliveryHandler, appLogger, prom)
 
 	srv := &http.Server{
 		Addr:    net.JoinHostPort("", cfg.Port),

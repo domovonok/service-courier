@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/logger"
+	"github.com/Avito-courses/course-go-avito-domovonok/internal/metrics"
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/middleware"
 	"github.com/go-chi/chi/v5"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -23,10 +24,15 @@ type DeliveryHandler interface {
 	Unassign(w http.ResponseWriter, r *http.Request)
 }
 
-func New(courierHandler CourierHandler, deliveryHandler DeliveryHandler, log logger.Logger) http.Handler {
+func New(
+	courierHandler CourierHandler,
+	deliveryHandler DeliveryHandler,
+	log logger.Logger,
+	prom *metrics.PrometheusMetrics,
+) http.Handler {
 	r := chi.NewRouter()
 
-	r.Use(middleware.Prometheus)
+	r.Use(middleware.Prometheus(prom))
 	r.Use(middleware.Logger(log))
 
 	r.Get("/ping", courierHandler.Ping)

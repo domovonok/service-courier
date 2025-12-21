@@ -36,12 +36,16 @@ type OrderConfig struct {
 	CheckInterval time.Duration
 }
 
-type KafkaConfig struct {
-	Brokers            []string
-	Topic              string
-	ConsumerGroup      string
+type SaramaConfig struct {
 	Version            string
 	AutoCommitInterval time.Duration
+}
+
+type KafkaConfig struct {
+	Brokers       []string
+	Topic         string
+	ConsumerGroup string
+	Sarama        SaramaConfig
 }
 
 type Config struct {
@@ -81,11 +85,13 @@ func Load() *Config {
 			CheckInterval: getEnvAsDuration("ORDER_CHECK_INTERVAL", 5*time.Second),
 		},
 		Kafka: KafkaConfig{
-			Brokers:            getEnvAsStringSlice("KAFKA_BROKERS", []string{"kafka:9092"}),
-			Topic:              getEnvAsString("KAFKA_ORDERS_TOPIC", "orders"),
-			ConsumerGroup:      getEnvAsString("KAFKA_CONSUMER_GROUP", "courier-service"),
-			Version:            getEnvAsString("KAFKA_VERSION", "2.8.0"),
-			AutoCommitInterval: getEnvAsDuration("KAFKA_AUTOCOMMIT_INTERVAL", 1*time.Second),
+			Brokers:       getEnvAsStringSlice("KAFKA_BROKERS", []string{"kafka:9092"}),
+			Topic:         getEnvAsString("KAFKA_ORDERS_TOPIC", "orders"),
+			ConsumerGroup: getEnvAsString("KAFKA_CONSUMER_GROUP", "courier-service"),
+			Sarama: SaramaConfig{
+				Version:            getEnvAsString("KAFKA_VERSION", "2.8.0"),
+				AutoCommitInterval: getEnvAsDuration("KAFKA_AUTOCOMMIT_INTERVAL", 1*time.Second),
+			},
 		},
 	}
 

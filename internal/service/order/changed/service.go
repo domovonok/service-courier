@@ -32,34 +32,18 @@ type StatusHandler interface {
 }
 
 type Service struct {
-	deliveryService DeliveryService
-	courierRepo     CourierRepository
-	deliveryRepo    DeliveryRepository
-	orderGateway    OrderGateway
-	handlers        map[string]StatusHandler
-	log             logger.Logger
+	factory StatusHandlerFactory
+	log     logger.Logger
 }
 
 func New(
-	deliveryService DeliveryService,
-	courierRepo CourierRepository,
-	deliveryRepo DeliveryRepository,
-	orderGateway OrderGateway,
+	factory StatusHandlerFactory,
 	log logger.Logger,
 ) *Service {
 	s := &Service{
-		deliveryService: deliveryService,
-		courierRepo:     courierRepo,
-		deliveryRepo:    deliveryRepo,
-		orderGateway:    orderGateway,
-		handlers:        make(map[string]StatusHandler),
-		log:             log,
+		factory: factory,
+		log:     log,
 	}
-
-	s.handlers["created"] = NewCreatedHandler(deliveryService, orderGateway, log)
-	s.handlers["cancelled"] = NewCancelledHandler(deliveryService, orderGateway, log)
-	s.handlers["completed"] = NewCompletedHandler(deliveryRepo, courierRepo, orderGateway, log)
-
 	return s
 }
 
@@ -70,7 +54,7 @@ func (s *Service) ProcessMessage(ctx context.Context, message *changed.Message) 
 		logger.Any("status", message.Status),
 	)
 
-	handler, ok := s.handlers[message.Status]
+	handler, ok := s.factory.Get(message.Status)
 	if !ok {
 		s.log.Warn(
 			"No handler for status, skipping",

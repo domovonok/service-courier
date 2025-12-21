@@ -12,6 +12,7 @@ import (
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/factory"
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/gateway"
 	orderChangedHandler "github.com/Avito-courses/course-go-avito-domovonok/internal/handler/queues/order/changed"
+	"github.com/Avito-courses/course-go-avito-domovonok/internal/kafka"
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/logger"
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/repository/postgres"
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/service"
@@ -55,39 +56,17 @@ func main() {
 	}
 	defer orderGateway.Close()
 
-	orderService := orderChangedService.New(deliveryService, courierRepo, deliveryRepo, orderGateway, appLogger)
+	handlerFactory := orderChangedService.NewHandlerFactory(deliveryService, courierRepo, deliveryRepo, orderGateway, appLogger)
+	orderService := orderChangedService.New(handlerFactory, appLogger)
 	handler := orderChangedHandler.NewHandler(orderService, appLogger)
 
-	kafkaVersion, err := sarama.ParseKafkaVersion(cfg.Kafka.Version)
+	consumer, err := kafka.NewKafkaConsumer(cfg.Kafka, handler, appLogger)
 	if err != nil {
-		appLogger.Fatal("Failed to parse Kafka version:", logger.Error(err))
+		appLogger.Fatal("Failed to initialize kafka consumer", logger.Error(err))
 	}
+	defer consumer.Close()
 
-	saramaConfig := sarama.NewConfig()
-	saramaConfig.Version = kafkaVersion
-	saramaConfig.Consumer.Offsets.Initial = sarama.OffsetOldest
-	saramaConfig.Consumer.Offsets.AutoCommit.Enable = true
-	saramaConfig.Consumer.Offsets.AutoCommit.Interval = cfg.Kafka.AutoCommitInterval
-
-	kafkaClient, err := sarama.NewConsumerGroup(cfg.Kafka.Brokers, cfg.Kafka.ConsumerGroup, saramaConfig)
-	if err != nil {
-		appLogger.Fatal("Unable to create kafka consumer group:", logger.Error(err))
-	}
-	defer kafkaClient.Close()
-
-	go func() {
-		for {
-			err := kafkaClient.Consume(ctx, []string{cfg.Kafka.Topic}, handler)
-			if err != nil {
-				appLogger.Error("Consume error:", logger.Error(err))
-			}
-
-			select {
-			case <-ctx.Done():
-				return
-			}
-		}
-	}()
+	consumer.Start(ctx)
 
 	appLogger.Info("Kafka worker started, consuming topic:", logger.Any("topic", cfg.Kafka.Topic))
 
