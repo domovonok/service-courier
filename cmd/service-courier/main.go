@@ -41,32 +41,32 @@ func main() {
 
 	middleware.StartSystemMetricsCollector(ctx)
 
-	pool, err := database.NewPool(ctx, cfg.DB)
+	pool, err := database.NewPool(ctx, cfg.DB, appLogger)
 	if err != nil {
-		log.Fatalln("Failed to initialize database:", err)
+		appLogger.Fatal("Failed to initialize database:", logger.Error(err))
 	}
 	defer pool.Close()
 
 	courierRepo := postgres.NewCourierRepository(pool)
 	courierService := service.NewCourierService(courierRepo)
-	courierHandler := handler.NewCourierHandler(courierService)
+	courierHandler := handler.NewCourierHandler(courierService, appLogger)
 
 	deliveryRepo := postgres.NewDeliveryRepository(pool)
 	calculatorFactory := factory.NewDeliveryTimeCalculatorFactory()
 	txManager := postgres.NewTransactionManager(pool)
-	deliveryService := service.NewDeliveryService(deliveryRepo, courierRepo, calculatorFactory, txManager)
-	deliveryHandler := handler.NewDeliveryHandler(deliveryService)
+	deliveryService := service.NewDeliveryService(deliveryRepo, courierRepo, calculatorFactory, txManager, appLogger)
+	deliveryHandler := handler.NewDeliveryHandler(deliveryService, appLogger)
 
-	expirationWorker := worker.NewDeliveryExpirationWorker(deliveryService, cfg.DeliveryCheckInterval)
+	expirationWorker := worker.NewDeliveryExpirationWorker(deliveryService, cfg.DeliveryCheckInterval, appLogger)
 	go expirationWorker.Start(ctx)
 
 	orderGateway, err := gateway.NewOrderGateway(cfg.Order.ServiceHost)
 	if err != nil {
-		log.Fatalln("Failed to initialize order gateway:", err)
+		appLogger.Fatal("Failed to initialize order gateway:", logger.Error(err))
 	}
 	defer orderGateway.Close()
 
-	orderWorker := worker.NewOrderWorker(orderGateway, deliveryService, cfg.Order.CheckInterval)
+	orderWorker := worker.NewOrderWorker(orderGateway, deliveryService, cfg.Order.CheckInterval, appLogger)
 	go orderWorker.Run(ctx)
 
 	httpHandler := router.New(courierHandler, deliveryHandler, appLogger)
@@ -78,19 +78,19 @@ func main() {
 
 	go func() {
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			log.Fatalln("Server error:", err)
+			appLogger.Fatal("Server error:", logger.Error(err))
 		}
 	}()
-	log.Println("Server listening on", srv.Addr)
+	appLogger.Info("Server listening on", logger.Any("addr", srv.Addr))
 
 	<-ctx.Done()
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	log.Println("Shutting down service-courier...")
+	appLogger.Info("Shutting down service-courier...")
 	if err := srv.Shutdown(shutdownCtx); err != nil {
-		log.Fatalln("Graceful shutdown failed:", err)
+		appLogger.Fatal("Graceful shutdown failed:", logger.Error(err))
 	}
-	log.Println("Service stopped successfully")
+	appLogger.Info("Service stopped successfully")
 }

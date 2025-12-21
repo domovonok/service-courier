@@ -12,24 +12,33 @@ import (
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/factory"
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/gateway"
 	orderChangedHandler "github.com/Avito-courses/course-go-avito-domovonok/internal/handler/queues/order/changed"
+	"github.com/Avito-courses/course-go-avito-domovonok/internal/logger"
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/repository/postgres"
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/service"
 	orderChangedService "github.com/Avito-courses/course-go-avito-domovonok/internal/service/order/changed"
 	"github.com/IBM/sarama"
+	"go.uber.org/zap"
 )
 
 func main() {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
 	cfg := config.Load()
+
+	zapLogger, err := zap.NewProduction()
+	if err != nil {
+		log.Fatalln("Failed to initialize logger:", err)
+	}
+	defer zapLogger.Sync()
+
+	appLogger := logger.NewZapLogger(zapLogger)
+
+	sarama.Logger = zap.NewStdLog(zapLogger)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	pool, err := database.NewPool(ctx, cfg.DB)
+	pool, err := database.NewPool(ctx, cfg.DB, appLogger)
 	if err != nil {
-		log.Fatalln("Failed to initialize database:", err)
+		appLogger.Fatal("Failed to initialize database", logger.Error(err))
 	}
 	defer pool.Close()
 
@@ -38,20 +47,20 @@ func main() {
 
 	calculatorFactory := factory.NewDeliveryTimeCalculatorFactory()
 	txManager := postgres.NewTransactionManager(pool)
-	deliveryService := service.NewDeliveryService(deliveryRepo, courierRepo, calculatorFactory, txManager)
+	deliveryService := service.NewDeliveryService(deliveryRepo, courierRepo, calculatorFactory, txManager, appLogger)
 
 	orderGateway, err := gateway.NewOrderGateway(cfg.Order.ServiceHost)
 	if err != nil {
-		log.Fatalln("Failed to initialize order gateway:", err)
+		appLogger.Fatal("Failed to initialize order gateway", logger.Error(err))
 	}
 	defer orderGateway.Close()
 
-	orderService := orderChangedService.New(deliveryService, courierRepo, deliveryRepo, orderGateway)
-	handler := orderChangedHandler.NewHandler(orderService)
+	orderService := orderChangedService.New(deliveryService, courierRepo, deliveryRepo, orderGateway, appLogger)
+	handler := orderChangedHandler.NewHandler(orderService, appLogger)
 
 	kafkaVersion, err := sarama.ParseKafkaVersion(cfg.Kafka.Version)
 	if err != nil {
-		log.Fatalln("Failed to parse Kafka version:", err)
+		appLogger.Fatal("Failed to parse Kafka version:", logger.Error(err))
 	}
 
 	saramaConfig := sarama.NewConfig()
@@ -60,11 +69,9 @@ func main() {
 	saramaConfig.Consumer.Offsets.AutoCommit.Enable = true
 	saramaConfig.Consumer.Offsets.AutoCommit.Interval = cfg.Kafka.AutoCommitInterval
 
-	log.Printf("Kafka brokers: %v", cfg.Kafka.Brokers)
-
 	kafkaClient, err := sarama.NewConsumerGroup(cfg.Kafka.Brokers, cfg.Kafka.ConsumerGroup, saramaConfig)
 	if err != nil {
-		log.Fatalln("unable to create kafka consumer group:", err)
+		appLogger.Fatal("Unable to create kafka consumer group:", logger.Error(err))
 	}
 	defer kafkaClient.Close()
 
@@ -72,7 +79,7 @@ func main() {
 		for {
 			err := kafkaClient.Consume(ctx, []string{cfg.Kafka.Topic}, handler)
 			if err != nil {
-				log.Printf("consume error: %v", err)
+				appLogger.Error("Consume error:", logger.Error(err))
 			}
 
 			select {
@@ -82,24 +89,9 @@ func main() {
 		}
 	}()
 
-	log.Printf("Kafka worker started, consuming topic: %s", cfg.Kafka.Topic)
+	appLogger.Info("Kafka worker started, consuming topic:", logger.Any("topic", cfg.Kafka.Topic))
 
-	waitGracefulShutdown(cancel)
+	<-ctx.Done()
 
-	log.Println("Assign worker stopped gracefully.")
-}
-
-func waitGracefulShutdown(cancel context.CancelFunc) {
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-
-	var sig string
-	select {
-	case s := <-sigChan:
-		sig = s.String()
-	}
-
-	cancel()
-
-	log.Printf("Shutdown signal (%s)", sig)
+	appLogger.Info("Assign worker stopped gracefully")
 }

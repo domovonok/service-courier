@@ -26,6 +26,10 @@ func (z *ZapLogger) Warn(msg string, fields ...Field) {
 	z.logger.Warn(msg, toZapFields(fields)...)
 }
 
+func (z *ZapLogger) Fatal(msg string, fields ...Field) {
+	z.logger.Fatal(msg, toZapFields(fields)...)
+}
+
 func (z *ZapLogger) Sync() error {
 	return z.logger.Sync()
 }

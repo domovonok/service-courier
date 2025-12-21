@@ -3,13 +3,12 @@ package handler
 import (
 	"context"
 	"encoding/json"
-	"log"
 	"net/http"
 	"strconv"
 
-	"github.com/go-chi/chi/v5"
-
+	"github.com/Avito-courses/course-go-avito-domovonok/internal/logger"
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/model"
+	"github.com/go-chi/chi/v5"
 )
 
 type courierService interface {
@@ -22,10 +21,14 @@ type courierService interface {
 
 type CourierHandler struct {
 	service courierService
+	log     logger.Logger
 }
 
-func NewCourierHandler(svc courierService) *CourierHandler {
-	return &CourierHandler{service: svc}
+func NewCourierHandler(svc courierService, log logger.Logger) *CourierHandler {
+	return &CourierHandler{
+		service: svc,
+		log:     log,
+	}
 }
 
 func (h *CourierHandler) writeJSON(w http.ResponseWriter, status int, v any) {
@@ -37,7 +40,7 @@ func (h *CourierHandler) writeJSON(w http.ResponseWriter, status int, v any) {
 func (h *CourierHandler) writeError(w http.ResponseWriter, err error) {
 	httpErr := mapErrorToHTTP(err)
 	if httpErr.Code == http.StatusInternalServerError {
-		log.Println("internal error:", err)
+		h.log.Error("internal error", logger.Error(err))
 	}
 	h.writeJSON(w, httpErr.Code, httpErr)
 }

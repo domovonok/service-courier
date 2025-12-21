@@ -24,10 +24,10 @@ func Logger(log logger.Logger) func(next http.Handler) http.Handler {
 			}
 
 			log.Info("HTTP request",
-				logger.String("method", r.Method),
-				logger.String("path", routePattern),
-				logger.Int("status", rw.statusCode),
-				logger.Duration("duration", duration),
+				logger.Any("method", r.Method),
+				logger.Any("path", routePattern),
+				logger.Any("status", rw.statusCode),
+				logger.Any("duration", duration),
 			)
 		})
 	}

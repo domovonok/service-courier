@@ -3,9 +3,9 @@ package changed
 import (
 	"context"
 	"encoding/json"
-	"log"
 
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/dto/queues/order/changed"
+	"github.com/Avito-courses/course-go-avito-domovonok/internal/logger"
 	"github.com/IBM/sarama"
 )
 
@@ -15,21 +15,23 @@ type Service interface {
 
 type Handler struct {
 	service Service
+	log     logger.Logger
 }
 
-func NewHandler(service Service) *Handler {
+func NewHandler(service Service, log logger.Logger) *Handler {
 	return &Handler{
 		service: service,
+		log:     log,
 	}
 }
 
 func (h *Handler) Setup(sarama.ConsumerGroupSession) error {
-	log.Println("Kafka consumer group session started")
+	h.log.Info("Kafka consumer group session started")
 	return nil
 }
 
 func (h *Handler) Cleanup(sarama.ConsumerGroupSession) error {
-	log.Println("Kafka consumer group session ended")
+	h.log.Info("Kafka consumer group session ended")
 	return nil
 }
 
@@ -41,23 +43,30 @@ func (h *Handler) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama
 				return nil
 			}
 
-			log.Printf("Received message from Kafka: topic=%s, partition=%d, offset=%d",
-				kafkaMessage.Topic, kafkaMessage.Partition, kafkaMessage.Offset)
+			h.log.Info(
+				"Received message from Kafka",
+				logger.Any("topic", kafkaMessage.Topic),
+				logger.Any("partition", kafkaMessage.Partition),
+				logger.Any("offset", kafkaMessage.Offset),
+			)
 
 			var message changed.Message
 			if err := json.Unmarshal(kafkaMessage.Value, &message); err != nil {
-				log.Printf("Failed to unmarshal message: %v, value: %s", err, string(kafkaMessage.Value))
+				h.log.Error(
+					"Failed to unmarshal message",
+					logger.Error(err),
+					logger.Any("value", string(kafkaMessage.Value)),
+				)
 				session.MarkMessage(kafkaMessage, "")
 				continue
 			}
 
 			if err := h.service.ProcessMessage(session.Context(), &message); err != nil {
-				log.Printf("Failed to process message: %v", err)
+				h.log.Error("Failed to process message", logger.Error(err))
 				continue
 			}
 
 			session.MarkMessage(kafkaMessage, "")
-
 		case <-session.Context().Done():
 			return nil
 		}

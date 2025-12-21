@@ -3,14 +3,23 @@ package changed
 import (
 	"context"
 	"fmt"
-	"log"
 
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/dto/queues/order/changed"
+	"github.com/Avito-courses/course-go-avito-domovonok/internal/logger"
 )
 
 type CreatedHandler struct {
 	deliveryService DeliveryService
 	orderGateway    OrderGateway
+	log             logger.Logger
+}
+
+func NewCreatedHandler(deliveryService DeliveryService, orderGateway OrderGateway, log logger.Logger) *CreatedHandler {
+	return &CreatedHandler{
+		deliveryService: deliveryService,
+		orderGateway:    orderGateway,
+		log:             log,
+	}
 }
 
 func (h *CreatedHandler) Handle(ctx context.Context, message *changed.Message) error {
@@ -20,7 +29,12 @@ func (h *CreatedHandler) Handle(ctx context.Context, message *changed.Message) e
 	}
 
 	if order.Status != "created" {
-		log.Printf("Order %s status changed from 'created' to '%s', skipping assignment", message.OrderID, order.Status)
+		h.log.Warn(
+			"Order status changed, skipping assignment",
+			logger.String("order_id", message.OrderID),
+			logger.String("expected_status", "created"),
+			logger.String("actual_status", order.Status),
+		)
 		return nil
 	}
 
@@ -29,13 +43,27 @@ func (h *CreatedHandler) Handle(ctx context.Context, message *changed.Message) e
 		return fmt.Errorf("failed to assign courier: %w", err)
 	}
 
-	log.Printf("Assigned courier %d to order %s, delivery ID: %d", courier.ID, message.OrderID, delivery.ID)
+	h.log.Info(
+		"Assigned courier to order",
+		logger.Int64("courier_id", courier.ID),
+		logger.String("order_id", message.OrderID),
+		logger.Int64("delivery_id", delivery.ID),
+	)
 	return nil
 }
 
 type CancelledHandler struct {
 	deliveryService DeliveryService
 	orderGateway    OrderGateway
+	log             logger.Logger
+}
+
+func NewCancelledHandler(deliveryService DeliveryService, orderGateway OrderGateway, log logger.Logger) *CancelledHandler {
+	return &CancelledHandler{
+		deliveryService: deliveryService,
+		orderGateway:    orderGateway,
+		log:             log,
+	}
 }
 
 func (h *CancelledHandler) Handle(ctx context.Context, message *changed.Message) error {
@@ -45,7 +73,12 @@ func (h *CancelledHandler) Handle(ctx context.Context, message *changed.Message)
 	}
 
 	if order.Status != "cancelled" {
-		log.Printf("Order %s status changed from 'cancelled' to '%s', skipping unassignment", message.OrderID, order.Status)
+		h.log.Warn(
+			"Order status changed, skipping unassignment",
+			logger.Any("order_id", message.OrderID),
+			logger.Any("expected_status", "cancelled"),
+			logger.Any("actual_status", order.Status),
+		)
 		return nil
 	}
 
@@ -54,7 +87,11 @@ func (h *CancelledHandler) Handle(ctx context.Context, message *changed.Message)
 		return fmt.Errorf("failed to unassign courier: %w", err)
 	}
 
-	log.Printf("Unassigned courier %d from order %s", courierID, message.OrderID)
+	h.log.Info(
+		"Unassigned courier from order",
+		logger.Any("courier_id", courierID),
+		logger.Any("order_id", message.OrderID),
+	)
 	return nil
 }
 
@@ -62,6 +99,21 @@ type CompletedHandler struct {
 	deliveryRepo DeliveryRepository
 	courierRepo  CourierRepository
 	orderGateway OrderGateway
+	log          logger.Logger
+}
+
+func NewCompletedHandler(
+	deliveryRepo DeliveryRepository,
+	courierRepo CourierRepository,
+	orderGateway OrderGateway,
+	log logger.Logger,
+) *CompletedHandler {
+	return &CompletedHandler{
+		deliveryRepo: deliveryRepo,
+		courierRepo:  courierRepo,
+		orderGateway: orderGateway,
+		log:          log,
+	}
 }
 
 func (h *CompletedHandler) Handle(ctx context.Context, message *changed.Message) error {
@@ -71,7 +123,12 @@ func (h *CompletedHandler) Handle(ctx context.Context, message *changed.Message)
 	}
 
 	if order.Status != "completed" {
-		log.Printf("Order %s status changed from 'completed' to '%s', skipping courier release", message.OrderID, order.Status)
+		h.log.Warn(
+			"Order status changed, skipping courier release",
+			logger.Any("order_id", message.OrderID),
+			logger.Any("expected_status", "completed"),
+			logger.Any("actual_status", order.Status),
+		)
 		return nil
 	}
 
@@ -90,6 +147,10 @@ func (h *CompletedHandler) Handle(ctx context.Context, message *changed.Message)
 		return fmt.Errorf("failed to update courier status: %w", err)
 	}
 
-	log.Printf("Released courier %d from completed order %s", courier.ID, message.OrderID)
+	h.log.Info(
+		"Released courier from completed order",
+		logger.Any("courier_id", courier.ID),
+		logger.Any("order_id", message.OrderID),
+	)
 	return nil
 }

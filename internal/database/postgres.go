@@ -3,14 +3,14 @@ package database
 import (
 	"context"
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/config"
+	"github.com/Avito-courses/course-go-avito-domovonok/internal/logger"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func NewPool(ctx context.Context, cfg config.DBConfig) (*pgxpool.Pool, error) {
+func NewPool(ctx context.Context, cfg config.DBConfig, log logger.Logger) (*pgxpool.Pool, error) {
 	connString := fmt.Sprintf("postgres://%s:%s@%s:%s/%s",
 		cfg.PgUser, cfg.PgPassword, cfg.PgHost, cfg.PgPort, cfg.PgDB)
 
@@ -34,12 +34,20 @@ func NewPool(ctx context.Context, cfg config.DBConfig) (*pgxpool.Pool, error) {
 
 	for i := 1; i <= cfg.Pool.PingMaxRetries; i++ {
 		if err := pool.Ping(ctx); err == nil {
-			log.Println("Successfully connected to database")
+			log.Info("Successfully connected to database")
 			return pool, nil
 		} else {
-			log.Printf("Database ping attempt %d/%d failed: %v", i, cfg.Pool.PingMaxRetries, err)
+			log.Warn(
+				"Database ping attempt failed",
+				logger.Any("attempt", i),
+				logger.Any("max_retries", cfg.Pool.PingMaxRetries),
+				logger.Error(err),
+			)
 			if i < cfg.Pool.PingMaxRetries {
-				log.Printf("Retrying in %v...", cfg.Pool.PingRetryDelay)
+				log.Warn(
+					"Retrying database ping",
+					logger.Any("delay", cfg.Pool.PingRetryDelay),
+				)
 				time.Sleep(cfg.Pool.PingRetryDelay)
 			}
 		}

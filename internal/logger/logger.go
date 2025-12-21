@@ -5,6 +5,7 @@ type Logger interface {
 	Error(msg string, fields ...Field)
 	Debug(msg string, fields ...Field)
 	Warn(msg string, fields ...Field)
+	Fatal(msg string, fields ...Field)
 }
 
 type Field struct {
@@ -12,19 +13,7 @@ type Field struct {
 	Value any
 }
 
-func String(key, value string) Field {
-	return Field{Key: key, Value: value}
-}
-
-func Int(key string, value int) Field {
-	return Field{Key: key, Value: value}
-}
-
-func Int64(key string, value int64) Field {
-	return Field{Key: key, Value: value}
-}
-
-func Duration(key string, value any) Field {
+func Any(key string, value any) Field {
 	return Field{Key: key, Value: value}
 }
 
