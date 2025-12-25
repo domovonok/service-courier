@@ -10,7 +10,84 @@ services:
       - pgdata:/var/lib/postgresql/data        # Хранилище данных
     ports:
       - "${POSTGRES_PORT}:5432"                # Проброс порта: хост:контейнер (хост берем из .env)
+    networks:
+      - infrastructure_default
+
+  service-courier:
+    build:
+      context: .
+      target: service
+    ports:
+      - "${COURIER_PORT}:${PORT}"
+    environment:
+      - PORT=${PORT}
+      - COURIER_PORT=${COURIER_PORT}
+      - ORDER_SERVICE_HOST=${ORDER_SERVICE_HOST}
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=${POSTGRES_PORT}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    depends_on:
+      - postgres
+    networks:
+      - infrastructure_default
+      - monitoring
+
+  prometheus:
+    image: prom/prometheus
+    ports: [ "9090:9090" ]
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus-data:/prometheus
+    depends_on:
+      - service-courier
+    networks:
+      - monitoring
+
+  grafana:
+    image: grafana/grafana
+    ports: [ "3000:3000" ]
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_INSTALL_PLUGINS=
+    depends_on:
+      - prometheus
+    networks:
+      - monitoring
+
+  worker:
+    build:
+      context: .
+      target: worker
+    environment:
+      - ORDER_SERVICE_HOST=${ORDER_SERVICE_HOST}
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=${POSTGRES_PORT}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - KAFKA_BROKERS=${KAFKA_BROKERS}
+      - KAFKA_ORDERS_TOPIC=${KAFKA_ORDERS_TOPIC}
+      - KAFKA_CONSUMER_GROUP=${KAFKA_CONSUMER_GROUP}
+    depends_on:
+      - postgres
+    networks:
+      - infrastructure_default
 
 volumes:
   pgdata:                         # Объявление Named Volume
+  prometheus-data:
+  grafana-data:
 
+networks:
+  infrastructure_default:
+    external: true
+  monitoring:
+    driver: bridge

@@ -11,6 +11,7 @@ import (
 
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/handler"
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/handler/mocks"
+	"github.com/Avito-courses/course-go-avito-domovonok/internal/logger"
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/model"
 	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/assert"
@@ -27,7 +28,8 @@ func TestCourierHandler_Ping(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockService := mocks.NewMockcourierService(ctrl)
-	h := handler.NewCourierHandler(mockService)
+	log := logger.NewNopLogger()
+	h := handler.NewCourierHandler(mockService, log)
 
 	req := httptest.NewRequest(http.MethodGet, "/ping", nil)
 	w := httptest.NewRecorder()
@@ -76,7 +78,8 @@ func TestCourierHandler_Healthcheck(t *testing.T) {
 			mockService := mocks.NewMockcourierService(ctrl)
 			tt.mockSetup(mockService)
 
-			h := handler.NewCourierHandler(mockService)
+			log := logger.NewNopLogger()
+			h := handler.NewCourierHandler(mockService, log)
 
 			req := httptest.NewRequest(http.MethodGet, "/health", nil)
 			w := httptest.NewRecorder()
@@ -162,7 +165,8 @@ func TestCourierHandler_Create(t *testing.T) {
 			mockService := mocks.NewMockcourierService(ctrl)
 			tt.mockSetup(mockService)
 
-			h := handler.NewCourierHandler(mockService)
+			log := logger.NewNopLogger()
+			h := handler.NewCourierHandler(mockService, log)
 
 			body, _ := json.Marshal(tt.requestBody)
 			req := httptest.NewRequest(http.MethodPost, "/couriers", bytes.NewReader(body))
@@ -231,7 +235,8 @@ func TestCourierHandler_Get(t *testing.T) {
 			mockService := mocks.NewMockcourierService(ctrl)
 			tt.mockSetup(mockService)
 
-			h := handler.NewCourierHandler(mockService)
+			log := logger.NewNopLogger()
+			h := handler.NewCourierHandler(mockService, log)
 
 			req := httptest.NewRequest(http.MethodGet, "/couriers/"+tt.courierID, nil)
 			w := httptest.NewRecorder()
@@ -287,7 +292,8 @@ func TestCourierHandler_List(t *testing.T) {
 			mockService := mocks.NewMockcourierService(ctrl)
 			tt.mockSetup(mockService)
 
-			h := handler.NewCourierHandler(mockService)
+			log := logger.NewNopLogger()
+			h := handler.NewCourierHandler(mockService, log)
 
 			req := httptest.NewRequest(http.MethodGet, "/couriers", nil)
 			w := httptest.NewRecorder()
@@ -344,7 +350,8 @@ func TestCourierHandler_Update(t *testing.T) {
 			mockService := mocks.NewMockcourierService(ctrl)
 			tt.mockSetup(mockService)
 
-			h := handler.NewCourierHandler(mockService)
+			log := logger.NewNopLogger()
+			h := handler.NewCourierHandler(mockService, log)
 
 			body, _ := json.Marshal(tt.requestBody)
 			req := httptest.NewRequest(http.MethodPut, "/couriers", bytes.NewReader(body))

@@ -3,23 +3,27 @@ package handler
 import (
 	"context"
 	"encoding/json"
-	"log"
 	"net/http"
 
+	"github.com/Avito-courses/course-go-avito-domovonok/internal/logger"
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/model"
 )
 
 type deliveryService interface {
-	AssignCourier(ctx context.Context, orderID string) (*model.Courier, *model.Delivery, error)
+	AssignCourier(ctx context.Context, orderID string) (*model.Courier, error, *model.Delivery)
 	UnassignCourier(ctx context.Context, orderID string) (int64, error)
 }
 
 type DeliveryHandler struct {
-	Service deliveryService
+	service deliveryService
+	log     logger.Logger
 }
 
-func NewDeliveryHandler(Service deliveryService) *DeliveryHandler {
-	return &DeliveryHandler{Service: Service}
+func NewDeliveryHandler(service deliveryService, log logger.Logger) *DeliveryHandler {
+	return &DeliveryHandler{
+		service: service,
+		log:     log,
+	}
 }
 
 func (h *DeliveryHandler) writeJSON(w http.ResponseWriter, status int, v any) {
@@ -31,7 +35,7 @@ func (h *DeliveryHandler) writeJSON(w http.ResponseWriter, status int, v any) {
 func (h *DeliveryHandler) writeError(w http.ResponseWriter, err error) {
 	httpErr := mapErrorToHTTP(err)
 	if httpErr.Code == http.StatusInternalServerError {
-		log.Println("internal error:", err)
+		h.log.Error("Internal error", logger.Error(err))
 	}
 	h.writeJSON(w, httpErr.Code, httpErr)
 }
@@ -43,7 +47,7 @@ func (h *DeliveryHandler) Assign(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	courier, delivery, err := h.Service.AssignCourier(r.Context(), req.OrderID)
+	courier, err, delivery := h.service.AssignCourier(r.Context(), req.OrderID)
 	if err != nil {
 		h.writeError(w, err)
 		return
@@ -66,7 +70,7 @@ func (h *DeliveryHandler) Unassign(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	courierID, err := h.Service.UnassignCourier(r.Context(), req.OrderID)
+	courierID, err := h.service.UnassignCourier(r.Context(), req.OrderID)
 	if err != nil {
 		h.writeError(w, err)
 		return

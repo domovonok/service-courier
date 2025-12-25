@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/joho/godotenv"
@@ -30,10 +31,29 @@ type DBConfig struct {
 	Pool       PoolConfig
 }
 
+type OrderConfig struct {
+	ServiceHost   string
+	CheckInterval time.Duration
+}
+
+type SaramaConfig struct {
+	Version            string
+	AutoCommitInterval time.Duration
+}
+
+type KafkaConfig struct {
+	Brokers       []string
+	Topic         string
+	ConsumerGroup string
+	Sarama        SaramaConfig
+}
+
 type Config struct {
 	Port                  string
 	DB                    DBConfig
 	DeliveryCheckInterval time.Duration
+	Order                 OrderConfig
+	Kafka                 KafkaConfig
 }
 
 func Load() *Config {
@@ -49,14 +69,28 @@ func Load() *Config {
 			PgUser:     getEnvAsString("POSTGRES_USER", "myuser"),
 			PgPassword: getEnvAsString("POSTGRES_PASSWORD", "mypassword"),
 			Pool: PoolConfig{
-				MaxConns:          getEnvAsInt32("POSTGRES_MAX_CONNS", 20),
-				MinConns:          getEnvAsInt32("POSTGRES_MIN_CONNS", 5),
-				MaxConnLifetime:   getEnvAsDuration("POSTGRES_MAX_CONN_LIFETIME", time.Hour),
-				MaxConnIdleTime:   getEnvAsDuration("POSTGRES_MAX_CONN_IDLE_TIME", 30*time.Minute),
-				HealthCheckPeriod: getEnvAsDuration("POSTGRES_HEALTH_CHECK_PERIOD", time.Minute),
-
-				PingMaxRetries: getEnvAsInt("POSTGRES_MAX_RETRIES", 5),
-				PingRetryDelay: getEnvAsDuration("POSTGRES_RETRY_DELAY", time.Second),
+				MaxConnLifetime:       getEnvAsDuration("POSTGRES_MAX_CONN_LIFETIME", time.Hour),
+				MaxConnLifetimeJitter: getEnvAsDuration("POSTGRES_MAX_CONN_LIFETIME_JITTER", 5*time.Minute),
+				MaxConnIdleTime:       getEnvAsDuration("POSTGRES_MAX_CONN_IDLE_TIME", 30*time.Minute),
+				MaxConns:              getEnvAsInt32("POSTGRES_MAX_CONNS", 20),
+				MinConns:              getEnvAsInt32("POSTGRES_MIN_CONNS", 5),
+				MinIdleConns:          getEnvAsInt32("POSTGRES_MIN_IDLE_CONNS", 2),
+				HealthCheckPeriod:     getEnvAsDuration("POSTGRES_HEALTH_CHECK_PERIOD", time.Minute),
+				PingMaxRetries:        getEnvAsInt("POSTGRES_MAX_RETRIES", 5),
+				PingRetryDelay:        getEnvAsDuration("POSTGRES_RETRY_DELAY", time.Second),
+			},
+		},
+		Order: OrderConfig{
+			ServiceHost:   getEnvAsString("ORDER_SERVICE_HOST", "service-order:50051"),
+			CheckInterval: getEnvAsDuration("ORDER_CHECK_INTERVAL", 5*time.Second),
+		},
+		Kafka: KafkaConfig{
+			Brokers:       getEnvAsStringSlice("KAFKA_BROKERS", []string{"kafka:9092"}),
+			Topic:         getEnvAsString("KAFKA_ORDERS_TOPIC", "orders"),
+			ConsumerGroup: getEnvAsString("KAFKA_CONSUMER_GROUP", "courier-service"),
+			Sarama: SaramaConfig{
+				Version:            getEnvAsString("KAFKA_VERSION", "2.8.0"),
+				AutoCommitInterval: getEnvAsDuration("KAFKA_AUTOCOMMIT_INTERVAL", 1*time.Second),
 			},
 		},
 	}
@@ -68,8 +102,8 @@ func Load() *Config {
 }
 
 func getEnvAs[T any](key string, defaultVal T, parse func(string) (T, error)) T {
-	if value := os.Getenv(key); value != "" {
-		if v, err := parse(value); err == nil {
+	if val := os.Getenv(key); val != "" {
+		if v, err := parse(val); err == nil {
 			return v
 		}
 	}
@@ -95,4 +129,14 @@ func getEnvAsInt32(key string, defaultVal int32) int32 {
 
 func getEnvAsDuration(key string, defaultVal time.Duration) time.Duration {
 	return getEnvAs(key, defaultVal, time.ParseDuration)
+}
+
+func getEnvAsStringSlice(key string, defaultVal []string) []string {
+	return getEnvAs[[]string](key, defaultVal, func(s string) ([]string, error) {
+		var result []string
+		for _, v := range strings.Split(s, ",") {
+			result = append(result, strings.TrimSpace(v))
+		}
+		return result, nil
+	})
 }

@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := run
 
 MAIN           ?= ./cmd/service-courier/main.go
-BIN            ?= app
+BIN            ?= service
 MIGRATIONS_DIR ?= ./migrations
 
 GOOSE_CMD = goose -dir $(MIGRATIONS_DIR) $(GOOSE_DRIVER) $(GOOSE_DBSTRING)

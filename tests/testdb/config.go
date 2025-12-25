@@ -16,14 +16,14 @@ func LoadTestConfig() *TestDBConfig {
 	_ = godotenv.Load("tests/.env.test")
 
 	return &TestDBConfig{
-		Database: getEnvOrDefault("POSTGRES_DB", "testdb"),
-		User:     getEnvOrDefault("POSTGRES_USER", "testuser"),
-		Password: getEnvOrDefault("POSTGRES_PASSWORD", "testpass"),
+		Database: getEnvAsString("POSTGRES_DB", "testdb"),
+		User:     getEnvAsString("POSTGRES_USER", "testuser"),
+		Password: getEnvAsString("POSTGRES_PASSWORD", "testpass"),
 	}
 }
 
-func getEnvOrDefault(key, defaultVal string) string {
-	if val := os.Getenv(key); val != "" {
+func getEnvAsString(key, defaultVal string) string {
+	if val, ok := os.LookupEnv(key); ok {
 		return val
 	}
 	return defaultVal

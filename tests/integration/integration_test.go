@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/factory"
+	"github.com/Avito-courses/course-go-avito-domovonok/internal/logger"
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/model"
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/repository/postgres"
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/service"
@@ -201,9 +202,10 @@ func TestDeliveryIntegration_AssignAndUnassign(t *testing.T) {
 	deliveryRepo := postgres.NewDeliveryRepository(pool)
 	calculatorFactory := factory.NewDeliveryTimeCalculatorFactory()
 	txManager := postgres.NewTransactionManager(pool)
-	deliverySvc := service.NewDeliveryService(deliveryRepo, courierRepo, calculatorFactory, txManager)
+	log := logger.NewNopLogger()
+	deliverySvc := service.NewDeliveryService(deliveryRepo, courierRepo, calculatorFactory, txManager, log)
 
-	assignedCourier, delivery, err := deliverySvc.AssignCourier(ctx, "order-123")
+	assignedCourier, err, delivery := deliverySvc.AssignCourier(ctx, "order-123")
 	require.NoError(t, err)
 	require.NotNil(t, assignedCourier)
 	require.NotNil(t, delivery)
@@ -246,18 +248,19 @@ func TestDeliveryIntegration_AssignMultipleCouriers(t *testing.T) {
 	deliveryRepo := postgres.NewDeliveryRepository(pool)
 	calculatorFactory := factory.NewDeliveryTimeCalculatorFactory()
 	txManager := postgres.NewTransactionManager(pool)
-	deliverySvc := service.NewDeliveryService(deliveryRepo, courierRepo, calculatorFactory, txManager)
+	log := logger.NewNopLogger()
+	deliverySvc := service.NewDeliveryService(deliveryRepo, courierRepo, calculatorFactory, txManager, log)
 
-	courier1, delivery1, err := deliverySvc.AssignCourier(ctx, "order-1")
+	courier1, err, delivery1 := deliverySvc.AssignCourier(ctx, "order-1")
 	require.NoError(t, err)
 	assert.Equal(t, "order-1", delivery1.OrderID)
 
-	courier2, delivery2, err := deliverySvc.AssignCourier(ctx, "order-2")
+	courier2, err, delivery2 := deliverySvc.AssignCourier(ctx, "order-2")
 	require.NoError(t, err)
 	assert.Equal(t, "order-2", delivery2.OrderID)
 	assert.NotEqual(t, courier1.ID, courier2.ID)
 
-	courier3, delivery3, err := deliverySvc.AssignCourier(ctx, "order-3")
+	courier3, err, delivery3 := deliverySvc.AssignCourier(ctx, "order-3")
 	require.NoError(t, err)
 	assert.Equal(t, "order-3", delivery3.OrderID)
 	assert.NotEqual(t, courier1.ID, courier3.ID)
@@ -284,12 +287,13 @@ func TestDeliveryIntegration_NoAvailableCouriers(t *testing.T) {
 	deliveryRepo := postgres.NewDeliveryRepository(pool)
 	calculatorFactory := factory.NewDeliveryTimeCalculatorFactory()
 	txManager := postgres.NewTransactionManager(pool)
-	deliverySvc := service.NewDeliveryService(deliveryRepo, courierRepo, calculatorFactory, txManager)
+	log := logger.NewNopLogger()
+	deliverySvc := service.NewDeliveryService(deliveryRepo, courierRepo, calculatorFactory, txManager, log)
 
-	_, _, err = deliverySvc.AssignCourier(ctx, "order-1")
+	_, err, _ = deliverySvc.AssignCourier(ctx, "order-1")
 	require.NoError(t, err)
 
-	_, _, err = deliverySvc.AssignCourier(ctx, "order-2")
+	_, err, _ = deliverySvc.AssignCourier(ctx, "order-2")
 	assert.Error(t, err)
 	assert.ErrorIs(t, err, model.ErrNoAvailableCouriers)
 }
@@ -303,7 +307,8 @@ func TestDeliveryIntegration_UnassignNonExistent(t *testing.T) {
 	deliveryRepo := postgres.NewDeliveryRepository(pool)
 	calculatorFactory := factory.NewDeliveryTimeCalculatorFactory()
 	txManager := postgres.NewTransactionManager(pool)
-	deliverySvc := service.NewDeliveryService(deliveryRepo, courierRepo, calculatorFactory, txManager)
+	log := logger.NewNopLogger()
+	deliverySvc := service.NewDeliveryService(deliveryRepo, courierRepo, calculatorFactory, txManager, log)
 
 	_, err := deliverySvc.UnassignCourier(ctx, "non-existent-order")
 	assert.Error(t, err)
@@ -330,9 +335,10 @@ func TestDeliveryIntegration_ExpiredDeliveries(t *testing.T) {
 	deliveryRepo := postgres.NewDeliveryRepository(pool)
 	calculatorFactory := factory.NewDeliveryTimeCalculatorFactory()
 	txManager := postgres.NewTransactionManager(pool)
-	deliverySvc := service.NewDeliveryService(deliveryRepo, courierRepo, calculatorFactory, txManager)
+	log := logger.NewNopLogger()
+	deliverySvc := service.NewDeliveryService(deliveryRepo, courierRepo, calculatorFactory, txManager, log)
 
-	assignedCourier, delivery, err := deliverySvc.AssignCourier(ctx, "order-test")
+	assignedCourier, err, delivery := deliverySvc.AssignCourier(ctx, "order-test")
 	require.NoError(t, err)
 	require.NotNil(t, assignedCourier)
 	require.NotNil(t, delivery)
@@ -363,7 +369,8 @@ func TestDeliveryIntegration_DeadlineCalculation(t *testing.T) {
 	deliveryRepo := postgres.NewDeliveryRepository(pool)
 	calculatorFactory := factory.NewDeliveryTimeCalculatorFactory()
 	txManager := postgres.NewTransactionManager(pool)
-	deliverySvc := service.NewDeliveryService(deliveryRepo, courierRepo, calculatorFactory, txManager)
+	log := logger.NewNopLogger()
+	deliverySvc := service.NewDeliveryService(deliveryRepo, courierRepo, calculatorFactory, txManager, log)
 
 	transportTypes := []struct {
 		transportType    string
@@ -385,7 +392,7 @@ func TestDeliveryIntegration_DeadlineCalculation(t *testing.T) {
 		require.NoError(t, err)
 
 		beforeAssign := time.Now()
-		_, delivery, err := deliverySvc.AssignCourier(ctx, fmt.Sprintf("order-%d", i+1))
+		_, err, delivery := deliverySvc.AssignCourier(ctx, fmt.Sprintf("order-%d", i+1))
 		require.NoError(t, err)
 
 		expectedDeadline := beforeAssign.Add(tt.expectedDuration)

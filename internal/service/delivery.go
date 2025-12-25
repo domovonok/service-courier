@@ -2,10 +2,10 @@ package service
 
 import (
 	"context"
-	"log"
 	"time"
 
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/factory"
+	"github.com/Avito-courses/course-go-avito-domovonok/internal/logger"
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/model"
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/transaction"
 )
@@ -23,20 +23,28 @@ type DeliveryService struct {
 	courierRepo       courierRepository
 	calculatorFactory factory.DeliveryTimeCalculatorFactory
 	txManager         transaction.Manager
+	log               logger.Logger
 }
 
-func NewDeliveryService(repo deliveryRepository, courierRepo courierRepository, calculatorFactory factory.DeliveryTimeCalculatorFactory, txManager transaction.Manager) *DeliveryService {
+func NewDeliveryService(
+	repo deliveryRepository,
+	courierRepo courierRepository,
+	calculatorFactory factory.DeliveryTimeCalculatorFactory,
+	txManager transaction.Manager,
+	log logger.Logger,
+) *DeliveryService {
 	return &DeliveryService{
 		repo:              repo,
 		courierRepo:       courierRepo,
 		calculatorFactory: calculatorFactory,
 		txManager:         txManager,
+		log:               log,
 	}
 }
 
-func (u *DeliveryService) AssignCourier(ctx context.Context, orderID string) (*model.Courier, *model.Delivery, error) {
+func (u *DeliveryService) AssignCourier(ctx context.Context, orderID string) (*model.Courier, error, *model.Delivery) {
 	if orderID == "" {
-		return nil, nil, model.ErrInvalidInput
+		return nil, model.ErrInvalidInput, nil
 	}
 
 	var courier *model.Courier
@@ -76,10 +84,10 @@ func (u *DeliveryService) AssignCourier(ctx context.Context, orderID string) (*m
 	})
 
 	if err != nil {
-		return nil, nil, err
+		return nil, err, nil
 	}
 
-	return courier, delivery, nil
+	return courier, nil, delivery
 }
 
 func (u *DeliveryService) UnassignCourier(ctx context.Context, orderID string) (int64, error) {
@@ -147,7 +155,7 @@ func (s *DeliveryService) CheckExpiredDeliveries(ctx context.Context) error {
 	}
 
 	if releasedCount > 0 {
-		log.Printf("Released %d couriers from expired deliveries", releasedCount)
+		s.log.Info("Released couriers from expired deliveries", logger.Any("released_count", releasedCount))
 	}
 
 	return nil
