@@ -27,9 +27,9 @@ type mockCourierAssigner struct {
 	mock.Mock
 }
 
-func (m *mockCourierAssigner) AssignCourier(ctx context.Context, orderID string) (*model.Courier, error, *model.Delivery) {
+func (m *mockCourierAssigner) AssignCourier(ctx context.Context, orderID string) (*model.Courier, *model.Delivery, error) {
 	args := m.Called(ctx, orderID)
-	return nil, args.Error(0), nil
+	return nil, nil, args.Error(0)
 }
 
 func TestOrderWorker_Run(t *testing.T) {

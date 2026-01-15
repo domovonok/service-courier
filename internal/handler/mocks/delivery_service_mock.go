@@ -42,12 +42,12 @@ func (m *MockdeliveryService) EXPECT() *MockdeliveryServiceMockRecorder {
 }
 
 // AssignCourier mocks base method.
-func (m *MockdeliveryService) AssignCourier(ctx context.Context, orderID string) (*model.Courier, error, *model.Delivery) {
+func (m *MockdeliveryService) AssignCourier(ctx context.Context, orderID string) (*model.Courier, *model.Delivery, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AssignCourier", ctx, orderID)
 	ret0, _ := ret[0].(*model.Courier)
-	ret1, _ := ret[1].(error)
-	ret2, _ := ret[2].(*model.Delivery)
+	ret1, _ := ret[1].(*model.Delivery)
+	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
 }
 

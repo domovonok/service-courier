@@ -9,7 +9,7 @@ import (
 )
 
 type CourierAssigner interface {
-	AssignCourier(ctx context.Context, orderID string) (*model.Courier, error, *model.Delivery)
+	AssignCourier(ctx context.Context, orderID string) (*model.Courier, *model.Delivery, error)
 }
 
 type orderGateway interface {
@@ -59,7 +59,7 @@ func (w *OrderWorker) processOrders(ctx context.Context) {
 	}
 
 	for _, order := range orders {
-		if _, err, _ := w.assigner.AssignCourier(ctx, order.ID); err != nil {
+		if _, _, err := w.assigner.AssignCourier(ctx, order.ID); err != nil {
 			w.log.Error(
 				"Failed to assign courier to order",
 				logger.Any("order_id", order.ID),

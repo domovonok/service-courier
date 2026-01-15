@@ -175,7 +175,7 @@ func TestDeliveryService_AssignCourier(t *testing.T) {
 
 			log := logger.NewNopLogger()
 			svc := service.NewDeliveryService(mockRepo, mockCourierRepo, mockFactory, mockTxMgr, log)
-			courier, err, delivery := svc.AssignCourier(context.Background(), tt.orderID)
+			courier, delivery, err := svc.AssignCourier(context.Background(), tt.orderID)
 
 			if tt.expectedErr != nil {
 				assert.Error(t, err)

@@ -53,7 +53,7 @@ func TestDeliveryHandler_Assign(t *testing.T) {
 				}
 				m.EXPECT().
 					AssignCourier(gomock.Any(), "order-123").
-					Return(courier, nil, delivery)
+					Return(courier, delivery, nil)
 			},
 			expectedStatus: http.StatusOK,
 			checkResponse: func(t *testing.T, w *httptest.ResponseRecorder) {
@@ -78,7 +78,7 @@ func TestDeliveryHandler_Assign(t *testing.T) {
 			mockSetup: func(m *mocks.MockdeliveryService) {
 				m.EXPECT().
 					AssignCourier(gomock.Any(), "order-123").
-					Return(nil, model.ErrNoAvailableCouriers, nil)
+					Return(nil, nil, model.ErrNoAvailableCouriers)
 			},
 			expectedStatus: http.StatusConflict,
 		},

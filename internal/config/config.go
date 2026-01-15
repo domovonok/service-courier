@@ -34,6 +34,8 @@ type DBConfig struct {
 type OrderConfig struct {
 	ServiceHost   string
 	CheckInterval time.Duration
+	MaxRetries    int
+	RetryDelay    time.Duration
 }
 
 type SaramaConfig struct {
@@ -48,12 +50,18 @@ type KafkaConfig struct {
 	Sarama        SaramaConfig
 }
 
+type RateLimitConfig struct {
+	Capacity   int
+	RefillRate int
+}
+
 type Config struct {
 	Port                  string
 	DB                    DBConfig
 	DeliveryCheckInterval time.Duration
 	Order                 OrderConfig
 	Kafka                 KafkaConfig
+	RateLimit             RateLimitConfig
 }
 
 func Load() *Config {
@@ -83,6 +91,8 @@ func Load() *Config {
 		Order: OrderConfig{
 			ServiceHost:   getEnvAsString("ORDER_SERVICE_HOST", "service-order:50051"),
 			CheckInterval: getEnvAsDuration("ORDER_CHECK_INTERVAL", 5*time.Second),
+			MaxRetries:    getEnvAsInt("ORDER_MAX_RETRIES", 3),
+			RetryDelay:    getEnvAsDuration("ORDER_RETRY_DELAY", 100*time.Millisecond),
 		},
 		Kafka: KafkaConfig{
 			Brokers:       getEnvAsStringSlice("KAFKA_BROKERS", []string{"kafka:9092"}),
@@ -92,6 +102,10 @@ func Load() *Config {
 				Version:            getEnvAsString("KAFKA_VERSION", "2.8.0"),
 				AutoCommitInterval: getEnvAsDuration("KAFKA_AUTOCOMMIT_INTERVAL", 1*time.Second),
 			},
+		},
+		RateLimit: RateLimitConfig{
+			Capacity:   getEnvAsInt("RATE_LIMIT_CAPACITY", 100),
+			RefillRate: getEnvAsInt("RATE_LIMIT_REFILL_RATE", 10),
 		},
 	}
 

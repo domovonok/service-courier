@@ -38,7 +38,7 @@ func (h *CreatedHandler) Handle(ctx context.Context, message *changed.Message) e
 		return nil
 	}
 
-	courier, err, delivery := h.deliveryService.AssignCourier(ctx, message.OrderID)
+	courier, delivery, err := h.deliveryService.AssignCourier(ctx, message.OrderID)
 	if err != nil {
 		return fmt.Errorf("failed to assign courier: %w", err)
 	}

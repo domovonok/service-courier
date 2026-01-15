@@ -10,7 +10,7 @@ import (
 )
 
 type deliveryService interface {
-	AssignCourier(ctx context.Context, orderID string) (*model.Courier, error, *model.Delivery)
+	AssignCourier(ctx context.Context, orderID string) (*model.Courier, *model.Delivery, error)
 	UnassignCourier(ctx context.Context, orderID string) (int64, error)
 }
 
@@ -47,7 +47,7 @@ func (h *DeliveryHandler) Assign(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	courier, err, delivery := h.service.AssignCourier(r.Context(), req.OrderID)
+	courier, delivery, err := h.service.AssignCourier(r.Context(), req.OrderID)
 	if err != nil {
 		h.writeError(w, err)
 		return

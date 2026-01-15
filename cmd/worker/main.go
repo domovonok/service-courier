@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"log"
 	"os"
 	"os/signal"
 	"syscall"
@@ -14,6 +13,7 @@ import (
 	orderChangedHandler "github.com/Avito-courses/course-go-avito-domovonok/internal/handler/queues/order/changed"
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/kafka"
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/logger"
+	"github.com/Avito-courses/course-go-avito-domovonok/internal/metrics"
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/repository/postgres"
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/service"
 	orderChangedService "github.com/Avito-courses/course-go-avito-domovonok/internal/service/order/changed"
@@ -24,18 +24,21 @@ import (
 func main() {
 	cfg := config.Load()
 
-	zapLogger, err := zap.NewProduction()
-	if err != nil {
-		log.Fatalln("Failed to initialize logger:", err)
-	}
+	zapLogger := zap.Must(zap.NewProduction())
 
 	appLogger := logger.NewZapLogger(zapLogger)
-	defer appLogger.Sync()
+	defer func() {
+		if err := appLogger.Sync(); err != nil {
+			appLogger.Error("Unable to sync logger", logger.Error(err))
+		}
+	}()
 
 	sarama.Logger = zap.NewStdLog(zapLogger)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
+
+	prom := metrics.NewPrometheusMetrics()
 
 	pool, err := database.NewPool(ctx, cfg.DB, appLogger)
 	if err != nil {
@@ -50,11 +53,15 @@ func main() {
 	txManager := postgres.NewTransactionManager(pool)
 	deliveryService := service.NewDeliveryService(deliveryRepo, courierRepo, calculatorFactory, txManager, appLogger)
 
-	orderGateway, err := gateway.NewOrderGateway(cfg.Order.ServiceHost)
+	orderGateway, err := gateway.NewOrderGateway(cfg.Order.ServiceHost, cfg.Order.MaxRetries, cfg.Order.RetryDelay, prom)
 	if err != nil {
 		appLogger.Fatal("Failed to initialize order gateway", logger.Error(err))
 	}
-	defer orderGateway.Close()
+	defer func() {
+		if err := orderGateway.Close(); err != nil {
+			appLogger.Error("Failed to close order gateway:", logger.Error(err))
+		}
+	}()
 
 	handlerFactory := orderChangedService.NewHandlerFactory(deliveryService, courierRepo, deliveryRepo, orderGateway, appLogger)
 	orderService := orderChangedService.New(handlerFactory, appLogger)
@@ -64,7 +71,11 @@ func main() {
 	if err != nil {
 		appLogger.Fatal("Failed to initialize kafka consumer", logger.Error(err))
 	}
-	defer consumer.Close()
+	defer func() {
+		if err := consumer.Close(); err != nil {
+			appLogger.Error("Failed to close kafka consumer:", logger.Error(err))
+		}
+	}()
 
 	consumer.Start(ctx)
 

@@ -10,6 +10,12 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
+type tokenBucket interface {
+	Allow() bool
+	Capacity() int
+	Remaining() int
+}
+
 type CourierHandler interface {
 	Ping(w http.ResponseWriter, r *http.Request)
 	Healthcheck(w http.ResponseWriter, r *http.Request)
@@ -29,9 +35,11 @@ func New(
 	deliveryHandler DeliveryHandler,
 	log logger.Logger,
 	prom *metrics.PrometheusMetrics,
+	rateLimiter tokenBucket,
 ) http.Handler {
 	r := chi.NewRouter()
 
+	r.Use(middleware.RateLimitMiddleware(rateLimiter, log, prom))
 	r.Use(middleware.Prometheus(prom))
 	r.Use(middleware.Logger(log))
 

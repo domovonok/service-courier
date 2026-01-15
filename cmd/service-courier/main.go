@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"errors"
-	"log"
 	"net"
 	"net/http"
 	"os"
@@ -16,6 +15,7 @@ import (
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/factory"
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/gateway"
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/handler"
+	"github.com/Avito-courses/course-go-avito-domovonok/internal/limiter"
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/logger"
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/metrics"
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/repository/postgres"
@@ -28,13 +28,14 @@ import (
 func main() {
 	cfg := config.Load()
 
-	zapLogger, err := zap.NewProduction()
-	if err != nil {
-		log.Fatalln("Failed to initialize logger:", err)
-	}
+	zapLogger := zap.Must(zap.NewProduction())
 
 	appLogger := logger.NewZapLogger(zapLogger)
-	defer appLogger.Sync()
+	defer func() {
+		if err := appLogger.Sync(); err != nil {
+			appLogger.Error("Unable to sync logger", logger.Error(err))
+		}
+	}()
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
@@ -44,7 +45,7 @@ func main() {
 
 	pool, err := database.NewPool(ctx, cfg.DB, appLogger)
 	if err != nil {
-		appLogger.Fatal("Failed to initialize database:", logger.Error(err))
+		appLogger.Error("Failed to initialize database:", logger.Error(err))
 	}
 	defer pool.Close()
 
@@ -61,16 +62,22 @@ func main() {
 	expirationWorker := worker.NewDeliveryExpirationWorker(deliveryService, cfg.DeliveryCheckInterval, appLogger)
 	go expirationWorker.Start(ctx)
 
-	orderGateway, err := gateway.NewOrderGateway(cfg.Order.ServiceHost)
+	orderGateway, err := gateway.NewOrderGateway(cfg.Order.ServiceHost, cfg.Order.MaxRetries, cfg.Order.RetryDelay, prom)
 	if err != nil {
 		appLogger.Fatal("Failed to initialize order gateway:", logger.Error(err))
 	}
-	defer orderGateway.Close()
+	defer func() {
+		if err := orderGateway.Close(); err != nil {
+			appLogger.Error("Failed to close order gateway:", logger.Error(err))
+		}
+	}()
 
 	orderWorker := worker.NewOrderWorker(orderGateway, deliveryService, cfg.Order.CheckInterval, appLogger)
 	go orderWorker.Run(ctx)
 
-	httpHandler := router.New(courierHandler, deliveryHandler, appLogger, prom)
+	rateLimiter := limiter.NewTokenBucket(cfg.RateLimit.Capacity, cfg.RateLimit.RefillRate)
+
+	httpHandler := router.New(courierHandler, deliveryHandler, appLogger, prom, rateLimiter)
 
 	srv := &http.Server{
 		Addr:    net.JoinHostPort("", cfg.Port),

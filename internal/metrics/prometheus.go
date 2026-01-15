@@ -11,6 +11,8 @@ type PrometheusMetrics struct {
 	SystemCPUUsage         prometheus.Gauge
 	SystemMemoryUsage      prometheus.Gauge
 	ApplicationMemoryUsage prometheus.Gauge
+	RateLimitExceededTotal prometheus.Counter
+	GatewayRetriesTotal    prometheus.Counter
 }
 
 func NewPrometheusMetrics() *PrometheusMetrics {
@@ -46,6 +48,18 @@ func NewPrometheusMetrics() *PrometheusMetrics {
 			prometheus.GaugeOpts{
 				Name: "application_memory_usage_bytes",
 				Help: "Application memory usage in bytes (Go heap allocation)",
+			},
+		),
+		RateLimitExceededTotal: promauto.NewCounter(
+			prometheus.CounterOpts{
+				Name: "rate_limit_exceeded_total",
+				Help: "Total number of rate limit exceeded events",
+			},
+		),
+		GatewayRetriesTotal: promauto.NewCounter(
+			prometheus.CounterOpts{
+				Name: "gateway_retries_total",
+				Help: "Total number of gateway retry attempts",
 			},
 		),
 	}

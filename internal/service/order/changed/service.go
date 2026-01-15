@@ -10,7 +10,7 @@ import (
 )
 
 type DeliveryService interface {
-	AssignCourier(ctx context.Context, orderID string) (*model.Courier, error, *model.Delivery)
+	AssignCourier(ctx context.Context, orderID string) (*model.Courier, *model.Delivery, error)
 	UnassignCourier(ctx context.Context, orderID string) (int64, error)
 }
 

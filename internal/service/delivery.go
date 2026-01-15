@@ -42,9 +42,9 @@ func NewDeliveryService(
 	}
 }
 
-func (u *DeliveryService) AssignCourier(ctx context.Context, orderID string) (*model.Courier, error, *model.Delivery) {
+func (u *DeliveryService) AssignCourier(ctx context.Context, orderID string) (*model.Courier, *model.Delivery, error) {
 	if orderID == "" {
-		return nil, model.ErrInvalidInput, nil
+		return nil, nil, model.ErrInvalidInput
 	}
 
 	var courier *model.Courier
@@ -84,10 +84,10 @@ func (u *DeliveryService) AssignCourier(ctx context.Context, orderID string) (*m
 	})
 
 	if err != nil {
-		return nil, err, nil
+		return nil, nil, err
 	}
 
-	return courier, nil, delivery
+	return courier, delivery, nil
 }
 
 func (u *DeliveryService) UnassignCourier(ctx context.Context, orderID string) (int64, error) {
