@@ -8,7 +8,6 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/config"
 	"github.com/Avito-courses/course-go-avito-domovonok/internal/database"
@@ -94,7 +93,7 @@ func main() {
 	pr := router.NewPprofRouter()
 
 	pprofSrv := &http.Server{
-		Addr:    net.JoinHostPort("0.0.0.0", cfg.PprofPort),
+		Addr:    net.JoinHostPort("", cfg.PprofPort),
 		Handler: pr,
 	}
 
@@ -107,7 +106,7 @@ func main() {
 
 	<-ctx.Done()
 
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
 	defer cancel()
 
 	appLogger.Info("Shutting down service-courier...")
@@ -115,7 +114,7 @@ func main() {
 		appLogger.Fatal("Graceful shutdown failed:", logger.Error(err))
 	}
 
-	pprofShutdownCtx, pprofCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	pprofShutdownCtx, pprofCancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
 	defer pprofCancel()
 	if err := pprofSrv.Shutdown(pprofShutdownCtx); err != nil {
 		appLogger.Error("Pprof server graceful shutdown failed", logger.Error(err))
