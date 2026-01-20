@@ -57,6 +57,7 @@ type RateLimitConfig struct {
 
 type Config struct {
 	Port                  string
+	PprofPort             string
 	DB                    DBConfig
 	DeliveryCheckInterval time.Duration
 	Order                 OrderConfig
@@ -69,6 +70,7 @@ func Load() *Config {
 
 	cfg := &Config{
 		Port:                  getEnvAsString("PORT", "8080"),
+		PprofPort:             getEnvAsString("PPROF_PORT", "6060"),
 		DeliveryCheckInterval: getEnvAsDuration("DELIVERY_CHECK_INTERVAL", 10*time.Second),
 		DB: DBConfig{
 			PgHost:     getEnvAsString("POSTGRES_HOST", "localhost"),

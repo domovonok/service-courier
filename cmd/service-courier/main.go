@@ -91,6 +91,20 @@ func main() {
 	}()
 	appLogger.Info("Server listening on", logger.Any("addr", srv.Addr))
 
+	pr := router.NewPprofRouter()
+
+	pprofSrv := &http.Server{
+		Addr:    net.JoinHostPort("0.0.0.0", cfg.PprofPort),
+		Handler: pr,
+	}
+
+	go func() {
+		appLogger.Info("Pprof server listening on", logger.Any("addr", pprofSrv.Addr))
+		if err := pprofSrv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			appLogger.Error("Pprof server error", logger.Error(err))
+		}
+	}()
+
 	<-ctx.Done()
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -100,5 +114,12 @@ func main() {
 	if err := srv.Shutdown(shutdownCtx); err != nil {
 		appLogger.Fatal("Graceful shutdown failed:", logger.Error(err))
 	}
+
+	pprofShutdownCtx, pprofCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer pprofCancel()
+	if err := pprofSrv.Shutdown(pprofShutdownCtx); err != nil {
+		appLogger.Error("Pprof server graceful shutdown failed", logger.Error(err))
+	}
+
 	appLogger.Info("Service stopped successfully")
 }

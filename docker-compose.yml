@@ -19,6 +19,7 @@ services:
       target: service
     ports:
       - "${COURIER_PORT}:${PORT}"
+      - "127.0.0.1:${PPROF_PORT}:${PPROF_PORT}"
     environment:
       - PORT=${PORT}
       - COURIER_PORT=${COURIER_PORT}

@@ -36,7 +36,7 @@ func New(
 	log logger.Logger,
 	prom *metrics.PrometheusMetrics,
 	rateLimiter tokenBucket,
-) http.Handler {
+) *chi.Mux {
 	r := chi.NewRouter()
 
 	r.Use(middleware.RateLimitMiddleware(rateLimiter, log, prom))
