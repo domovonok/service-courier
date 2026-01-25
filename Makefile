@@ -6,7 +6,7 @@ MIGRATIONS_DIR ?= ./migrations
 
 GOOSE_CMD = goose -dir $(MIGRATIONS_DIR) $(GOOSE_DRIVER) $(GOOSE_DBSTRING)
 
-.PHONY: up down migrate migrate-down run build
+.PHONY: up down migrate migrate-down run build lint
 
 up:
 	docker compose up -d
