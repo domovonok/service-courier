@@ -25,3 +25,6 @@ run: up migrate
 
 build:
 	go build -o $(BIN) $(MAIN)
+
+lint:
+	golangci-lint run ./...
