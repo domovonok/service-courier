@@ -44,7 +44,7 @@ func main() {
 
 	pool, err := database.NewPool(ctx, cfg.DB, appLogger)
 	if err != nil {
-		appLogger.Error("Failed to initialize database:", logger.Error(err))
+		appLogger.Fatal("Failed to initialize database:", logger.Error(err))
 	}
 	defer pool.Close()
 
